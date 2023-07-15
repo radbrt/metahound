@@ -7,6 +7,7 @@ from metadog.connection_handlers.sftp_connection import SFTPFileSystem
 from metadog.connection_handlers.s3_connection import S3FileSystem
 from metadog.connection_handlers.az_connection import AZFileSystem
 from metadog.file_handlers.parquet_handler import ParquetHandler
+from metadog.file_handlers.jsonl_handler import JSONLHandler
 from metadog.file_handlers.csv_handler import CSVHandler
 from metadog.backend_handlers import GenericBackendHandler
 from metadog.db_scanners import GenericDBScanner
@@ -167,17 +168,21 @@ def scan_fn(select, no_stats):
 
 
 def handle_file(file_name, filesystem, get_schemas):
+    print(file_name)
+    file_stream = filesystem.get_file(file_name)
+    
     if file_name.endswith('.csv'):
-        print(file_name)
-        file_stream = filesystem.get_file(file_name)
         csv_handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
         return csv_handler.get_file_metadata()
 
     elif file_name.endswith('.parquet'):
-        print(file_name)
-        file_stream = filesystem.get_file(file_name)
         pq_handler = ParquetHandler(file_stream, file_name, get_schema=get_schemas)
         return pq_handler.get_file_metadata()
+    
+    elif file_name.endswith('.jsonl'):
+        jsonl_handler = JSONLHandler(file_stream, file_name, get_schema=get_schemas)
+        return jsonl_handler.get_file_metadata()
+
     else:
         return {"file": file_name, "properties": {} }
 
