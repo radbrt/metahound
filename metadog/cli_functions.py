@@ -111,6 +111,7 @@ def scan_fn(select, no_stats):
                 print(f"Scanning sftp {source['name']}")
                 get_schemas = source.get("get_schemas", False)
                 filesystem = SFTPFileSystem(host=source['host'], username=source['username'], password=source['password'])
+                
                 all_files = filesystem.get_files()
                 highwater = backend.get_last_modified(server=source['name'])
                 files = [f['name'] for f in all_files if f['mtime'] > highwater]
@@ -148,7 +149,6 @@ def scan_fn(select, no_stats):
                 get_schemas = source.get("get_schemas", False)
                 filesystem = AZFileSystem(search_prefix=source['path'], storage_options=source['connection'])
 
-                ####### ABSTRACT AWAY #######
                 all_files = filesystem.get_files()
                 highwater = backend.get_last_modified(server=source['name'])
                 files = [f['name'] for f in all_files if f['mtime'] > highwater]

@@ -29,16 +29,25 @@ def backend():
 @click.option('--select', '-s', help='Select sources to scan')
 @click.option('--no-stats', help='Omit generating table statistics', is_flag=True)
 def scan(select, no_stats):
+    """
+    Run a scan based on the configuration file
+    """
     scan_fn(select, no_stats)
 
 
 @metadog.command()
 def warnings():
+    """
+    Analyze database statistics and print warnings based on predicted values
+    """
     warnings_fn()
 
 
 @metadog.command()
 def hello():
+    """
+    Print a friendly greeting
+    """
     print(
         """
            _____  ___________________________  ________   ________    ________     / \__
