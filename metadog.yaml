@@ -26,3 +26,10 @@ sources:
     get_schemas: true
     connection:
       anon: true
+  - name: fabby
+    type: az
+    path: fabby
+    get_schemas: true
+    connection:
+      account_name: radlake
+      account_key: {{ AZURESTORAGE_KEY }}

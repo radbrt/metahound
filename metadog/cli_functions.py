@@ -5,6 +5,8 @@ import jinja2
 from .setup import run_model_ddls
 from metadog.connection_handlers.sftp_connection import SFTPFileSystem
 from metadog.connection_handlers.s3_connection import S3FileSystem
+from metadog.connection_handlers.az_connection import AZFileSystem
+from metadog.file_handlers.parquet_handler import ParquetHandler
 from metadog.file_handlers.csv_handler import CSVHandler
 from metadog.backend_handlers import GenericBackendHandler
 from metadog.db_scanners import GenericDBScanner
@@ -86,9 +88,7 @@ def scan_fn(select, no_stats):
                 for db in source["databases"]:
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
-
                     db_scanner = SnowflakeScanner(database=db, **config)
-
                     catalog, stats = db_scanner.profile_db(db, do_analyze)
 
                     backend.merge_database_crawl(domain=source['name'], db_json=catalog)
@@ -100,11 +100,9 @@ def scan_fn(select, no_stats):
                 for db in source["databases"]:
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
-
                     db_scanner = GenericDBScanner(database=db, **config)
 
                     catalog, stats = db_scanner.profile_db(db, do_analyze)
-
                     backend.merge_database_crawl(domain=source['name'], db_json=catalog)
                     if do_analyze:
                         backend.merge_database_stats(domain=source['name'], db_json=stats)
@@ -118,13 +116,8 @@ def scan_fn(select, no_stats):
                 files = [f['name'] for f in all_files if f['mtime'] > highwater]
                 schemas = []
                 for file_name in files:
-                    if file_name.endswith('.csv'):
-                        print(file_name)
-                        file_stream = filesystem.get_file(file_name)
-                        csv_handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
-                        schemas.append(csv_handler.get_file_metadata())
-                    else:
-                        schemas.append({"file": file_name, "properties": {} })
+                    schema = handle_file(file_name, filesystem, get_schemas)
+                    schemas.append(schema)
                 
                 file_domain = filesystem.uri
                 backend.merge_file_crawl(domain=source['name'], protocol='sftp', file_list=schemas)
@@ -142,22 +135,52 @@ def scan_fn(select, no_stats):
                 files = [f['name'] for f in all_files if f['mtime'] > highwater]
                 schemas = []
                 for file_name in files:
-                    if file_name.endswith('.csv'):
-                        print(file_name)
-                        file_stream = filesystem.get_file(file_name)
-                        csv_handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
-                        schemas.append(csv_handler.get_file_metadata())
-                    else:
-                        schemas.append({"file": file_name, "properties": {} })
+                    schema = handle_file(file_name, filesystem, get_schemas)
+                    schemas.append(schema)
                 
                 file_domain = filesystem.uri
                 backend.merge_file_crawl(domain=source['name'], protocol='s3', file_list=schemas)
                 last_modified = filesystem.get_last_modified()
                 backend.register_scan(server=source['name'], last_modified=last_modified)
 
+            case "az":
+                print(f"Scanning AZ {source['name']}")
+                get_schemas = source.get("get_schemas", False)
+                filesystem = AZFileSystem(search_prefix=source['path'], storage_options=source['connection'])
+
+                ####### ABSTRACT AWAY #######
+                all_files = filesystem.get_files()
+                highwater = backend.get_last_modified(server=source['name'])
+                files = [f['name'] for f in all_files if f['mtime'] > highwater]
+                schemas = []
+                for file_name in files:
+                    schema = handle_file(file_name, filesystem, get_schemas)
+                    schemas.append(schema)
+
+                file_domain = filesystem.uri
+                backend.merge_file_crawl(domain=source['name'], protocol='az', file_list=schemas)
+                last_modified = filesystem.get_last_modified()
+                backend.register_scan(server=source['name'], last_modified=last_modified)
 
             case _:
                 raise NotImplementedError("Source type not implemented")
+
+
+def handle_file(file_name, filesystem, get_schemas):
+    if file_name.endswith('.csv'):
+        print(file_name)
+        file_stream = filesystem.get_file(file_name)
+        csv_handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
+        return csv_handler.get_file_metadata()
+
+    elif file_name.endswith('.parquet'):
+        print(file_name)
+        file_stream = filesystem.get_file(file_name)
+        pq_handler = ParquetHandler(file_stream, file_name, get_schema=get_schemas)
+        return pq_handler.get_file_metadata()
+    else:
+        return {"file": file_name, "properties": {} }
+
 
 def warnings_fn():
     """
