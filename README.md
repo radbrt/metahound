@@ -58,6 +58,11 @@ Choose the backend database you want to use by updating the `METADOG_BACKEND_URI
 
 Once the validation passes, you can run a scan with `metadog scan`. You can limit the scan to only a subset of sources using the `-s` or `--select` flag, and turn off table statistics at runtime with the `--no-stats` flag.
 
+### Keep secrets to yourself
+
+The configuration file accepts jinja, so secret strings like passwords can be abstracted away from the configuration file by defining the password in a `.env` file like `THE_SFTP_PASSWORD = 'sup3rs3cret!'` and refer to it in the config file using the double-brace notation: `password: {{ THE_SFTP_PASSWORD }}`
+
+
 ## Running metadog
 
 ### Scanning
@@ -69,6 +74,10 @@ Once the sources have been configured, you can start a scan by running `metadog 
 Once `metadog scan` has been run at least two times, you can scan the table metrics and print anomalies by running `metadog warnings`.
 
 Metadog uses Prophet for predicting metric values, and `metadog warnings` will report any observations where the observed value is outside the lower or upper estimated threshold.
+
+## File types
+
+Currently, the scanner handles CSV and Parquet files.
 
 ## Q&A
 
