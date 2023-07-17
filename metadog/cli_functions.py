@@ -111,7 +111,11 @@ def scan_fn(select, no_stats):
             case "sftp":
                 print(f"Scanning sftp {source['name']}")
                 get_schemas = source.get("get_schemas", False)
-                filesystem = SFTPFileSystem(host=source['host'], username=source['username'], password=source['password'])
+                filesystem = SFTPFileSystem(
+                    host=source['connection']['host'], 
+                    username=source['connection']['username'], 
+                    password=source['connection']['password'],
+                    search_prefix=source['search_prefix'])
                 
                 all_files = filesystem.get_files()
                 highwater = backend.get_last_modified(server=source['name'])
@@ -159,7 +163,7 @@ def scan_fn(select, no_stats):
                     schemas.append(schema)
 
                 file_domain = filesystem.uri
-                backend.merge_file_crawl(domain=source['name'], protocol='az', file_list=schemas)
+                backend.merge_file_crawl(domain=source['connection']['account_name'], protocol='az', file_list=schemas)
                 last_modified = filesystem.get_last_modified()
                 backend.register_scan(server=source['name'], last_modified=last_modified)
 
@@ -168,7 +172,7 @@ def scan_fn(select, no_stats):
 
 
 def handle_file(file_name, filesystem, get_schemas):
-    print(file_name)
+    
     file_stream = filesystem.get_file(file_name)
     
     if file_name.endswith('.csv'):

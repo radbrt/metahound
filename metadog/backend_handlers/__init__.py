@@ -98,7 +98,7 @@ class GenericBackendHandler():
         for schema_name in db_json['schemas'].keys():
 
             for table_element in db_json['schemas'][schema_name]:
-                table_uri = f"snowflake://{domain}/{db_json['database']}/{schema_name}/{table_element['name']}"
+                table_uri = f"db://{domain}/{db_json['database']}/{schema_name}/{table_element['name']}"
                 table = session.query(Tables).filter_by(uri=table_uri).first()
                 if not table:
                     table = Tables(name=table_element["name"], uri = table_uri, db_name=db_json['database'], schema_name=schema_name)
@@ -181,13 +181,6 @@ class GenericBackendHandler():
         """.format(partition), self.connection)
 
         return df
-    
-        # m = Prophet()
-        # m.fit(df)
-        # pred = m.predict(df)
-        # pred['original'] = df['y']
-        # outliers = pred[ (pred['yhat_lower'] > pred['original'])  | (pred['yhat_upper'] < pred['original']) ]
-        # return outliers
 
 
     def get_partitions(self):

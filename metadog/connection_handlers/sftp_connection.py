@@ -16,9 +16,21 @@ class SFTPFileSystem():
         return f"sftp://{self.username}@{self.host}"
 
     def get_files(self):
-        fl = self.connection.ls(self.search_prefix, detail=True)
 
-        return fl
+        for f in self.list_files_recursive(self.search_prefix):
+            yield {
+                'name': f['name'], 
+                'size': f['size'], 
+                'mtime': f['mtime']
+            }
+
+
+    def list_files_recursive(self, path):
+        for file in self.connection.ls(path, detail=True):
+            if file['type'] == 'directory':
+                yield from self.list_files_recursive(file['name'])
+            else:
+                yield file
 
 
     def get_file(self, file_name):
