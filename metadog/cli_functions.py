@@ -26,8 +26,8 @@ def parse_spec():
     de = dotenv_values(".env")
     jinja_parsed = jinja2.Template(spec_txt).render(de)
     if not os.getenv("METADOG_BACKEND_URI"):
-        if 'METADOG_BACKEND_URI' in dotenv_values():
-            backend_uri = dotenv_values()['METADOG_BACKEND_URI'] or 'sqlite:///metadog.db'
+        if 'METADOG_BACKEND_URI' in de:
+            backend_uri = de['METADOG_BACKEND_URI'] or 'sqlite:///metadog.db'
 
             os.environ["METADOG_BACKEND_URI"] = backend_uri
         else:
