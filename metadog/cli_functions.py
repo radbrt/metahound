@@ -14,7 +14,7 @@ from metadog.db_scanners import GenericDBScanner
 from metadog.db_scanners.snowflake_scanner import SnowflakeScanner
 import pandas as pd
 
-from metadog.outlierdetection import OutlierDetector
+from metadog.outlierdetection import OutlierDetector, zIndex
 
 
 load_dotenv()
@@ -191,7 +191,7 @@ def handle_file(file_name, filesystem, get_schemas):
         return {"file": file_name, "properties": {} }
 
 
-def warnings_fn():
+def warnings_fn(algorithm):
     """
     Print warnings about the current project
     """
@@ -202,7 +202,13 @@ def warnings_fn():
     else:
         backend = GenericBackendHandler()
 
-    analyzer = OutlierDetector()
+    if algorithm == 'prophet':
+        analyzer = OutlierDetector()
+    elif algorithm == 'zindex':
+        analyzer = zIndex(threshold=2.2)
+    else:
+        raise NotImplementedError("Algorithm not implemented")
+    
     partitions = backend.get_partitions()
 
     n_outier_partitions = 0

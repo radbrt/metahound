@@ -22,3 +22,12 @@ class OutlierDetector:
     def get_warnings(self):
         pass
 
+class zIndex:
+    def __init__(self, threshold=3):
+        self.threshold = threshold
+        
+
+    def get_outliers_in_df(self, df, column='y'):
+        df = df.copy()
+        df['z_index'] = np.abs((df[column] - df[column].mean())/df[column].std(ddof=0))
+        return df[df['z_index'] > self.threshold][['ds', column, 'z_index']]

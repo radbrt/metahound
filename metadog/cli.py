@@ -35,12 +35,13 @@ def scan(select, no_stats):
     scan_fn(select, no_stats)
 
 
+@click.option('--algorithm', '-a', help='Algorithm to use for outlier detection. zindex or prophet', default='zindex')
 @metadog.command()
-def warnings():
+def warnings(algorithm='zindex'):
     """
     Analyze database statistics and print warnings based on predicted values
     """
-    warnings_fn()
+    warnings_fn(algorithm)
 
 
 @metadog.command()
