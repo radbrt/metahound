@@ -1,48 +1,48 @@
 version: 1
 sources:
-  # - name: snowflake-ax
-  #   type: snowflake
-  #   flavor: snowflake
-  #   dbt_manifest: 
-  #   connection:
-  #     account: ax61550.west-europe.azure
-  #     user: radrun
-  #     warehouse: DBT_WH
-  #     role: DBT
-  #     password: {{ AX_PASSWORD }}
-  #   databases:
-  #     # - dbthouse
-  #     - patch
-  # - name: pgaz
-  #   type: database
-  #   flavor: postgres
-  #   connection:
-  #     drivername: postgresql+psycopg2
-  #     host: pgrmtestyuflklr.postgres.database.azure.com
-  #     port: 5432
-  #     username: radbrt
-  #     password: {{ PG_PASSWORD }}
-  #   databases:
-  #     - postgres
-  - name: testsftp
+  - name: <my_snowflake>
+    type: snowflake
+    flavor: snowflake
+    dbt_manifest: 
+    connection:
+      account: <my_account>
+      user: <my_user>
+      warehouse: <my_warehouse>
+      role: <my_role>
+      password: {{ AX_PASSWORD }}
+    databases:
+      - DWH
+      - SOURCE_DATA
+  - name: <my_postgres>
+    type: database
+    flavor: postgres
+    connection:
+      drivername: postgresql+psycopg2
+      host: postgres.db.local
+      port: 5432
+      username: <my_username>
+      password: {{ PG_PASSWORD }}
+    databases:
+      - postgres
+  - name: <my_sftp>
     type: sftp
     get_schemas: true
     search_prefix: data/
     connection:
-      host: 20.82.151.3
-      username: grewhwinouafvreahi
+      host: <127.0.0.1>
+      username: <my_username>
       password: {{ TESTSFTP_PASSWORD }}
       port: 22
-  - name: wfh
+  - name: <my_s3_bucket>
     type: s3
-    bucket: s3://com.radbrt.wfh/scantest
+    bucket: s3://<my_s3_bucket>
     get_schemas: true
     connection:
       anon: true
-  - name: fabby
+  - name: <my_azure_storage>
     type: az
-    path: fabby
+    path: <my_azure_container>
     get_schemas: true
     connection:
-      account_name: radlake
+      account_name: <my_storage_account_name>
       account_key: {{ AZURESTORAGE_KEY }}
