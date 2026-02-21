@@ -275,7 +275,7 @@ def warnings_fn(algorithm):
     n_outier_partitions = 0
     for partition in partitions:
         df = backend.get_partition(partition)
-        df.dropna(inplace=True)
+        df = df.dropna()
 
         if len(df) > 1:
             outliers = analyzer.get_outliers_in_df(df)
