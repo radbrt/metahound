@@ -6,3 +6,4 @@ _*.ipynb
 *.db
 __pycache__/
 test/
+.DS_Store
