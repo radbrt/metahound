@@ -106,9 +106,22 @@ sources:
 |------|-------------|
 | `snowflake` | Snowflake data warehouse |
 | `database` | Generic SQL database (PostgreSQL, MySQL, etc.) |
+| `bigquery` | Google BigQuery (requires `pip install metadog[bigquery]`) |
 | `sftp` | Remote SFTP servers |
 | `s3` | AWS S3 (or S3-compatible) blob storage |
 | `az` | Azure Storage Accounts |
+
+**BigQuery example:**
+
+```yaml
+  - name: my_bigquery
+    type: bigquery
+    connection:
+      project: my-gcp-project
+      credentials_path: /path/to/service-account.json  # optional; omit to use ADC
+    datasets:
+      - my_dataset
+```
 
 See `metadog/connection_handlers/README.md` for full connection configuration details.
 
@@ -160,6 +173,22 @@ Two algorithms are available via the `-a / --algorithm` flag:
 - `zindex` (default) — statistical Z-score based detection
 - `prophet` — Facebook Prophet time-series forecasting
 
+The Z-score threshold can be overridden with `-t / --threshold`:
+
+```sh
+metadog warnings --threshold 2.5
+```
+
+The default threshold is `3.0`. A lower value flags more anomalies; a higher value flags fewer. The threshold can also be set per-source in `metadog.yaml`.
+
+### Check status
+
+Print a summary of all sources and recent scans stored in the backend:
+
+```sh
+metadog status
+```
+
 ### Push to a Metadog server
 
 If you're running the self-hosted server or using Metadog Cloud, push local scan results with:
@@ -185,9 +214,12 @@ These are saved to your `.env` file as `METADOG_API_URL` and `METADOG_API_TOKEN`
 | `metadog backend` | Set up the backend database schema |
 | `metadog scan` | Run a scan of configured sources |
 | `metadog warnings` | Detect anomalies in collected metrics |
+| `metadog status` | Print a summary of sources and recent scans |
 | `metadog push` | Push local data to a Metadog server |
 | `metadog config set-token <token>` | Save API token to `.env` |
 | `metadog config set-url <url>` | Save server URL to `.env` |
+
+Pass `-v / --verbose` to any command for debug-level logging.
 
 ## Q&A
 
