@@ -210,6 +210,8 @@ def handle_file(file_name: str, filesystem, get_schemas: bool) -> dict:
 
 def push_fn(api_url: str, api_token: str) -> None:
     """Serialize local DB and POST it to the Metadog server ingest endpoint."""
+    import hashlib
+    import json
     import requests
 
     backend = _get_backend()
@@ -225,6 +227,14 @@ def push_fn(api_url: str, api_token: str) -> None:
         raise ValueError("No API URL provided. Set METADOG_API_URL or use --api-url.")
 
     payload = backend.get_scan_payload()
+
+    # Hash the sources content so the cloud can detect duplicate pushes.
+    # cli_version is excluded so a version upgrade alone doesn't bypass dedup.
+    push_hash = hashlib.sha256(
+        json.dumps(payload["sources"], sort_keys=True, default=str).encode()
+    ).hexdigest()
+    payload["push_hash"] = push_hash
+
     response = requests.post(
         f"{api_url}/api/v1/ingest",
         json=payload,
@@ -232,8 +242,12 @@ def push_fn(api_url: str, api_token: str) -> None:
     )
     response.raise_for_status()
     result = response.json()
-    logger.info(f"Push successful: {result}")
-    click.echo(f"Push successful: {result}")
+    if result.get("duplicate"):
+        logger.info("Push skipped: no new scan data since last push")
+        click.echo("No new scan data since last push — nothing pushed.")
+    else:
+        logger.info(f"Push successful: {result}")
+        click.echo(f"Push successful: {result}")
 
 
 def _set_env_value(env_path: str, key: str, value: str) -> None:
