@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metadog"
-version = "2.0.0"
+version = "2.0.1"
 description = ""
 authors = ["Henning <henning.holgersen@gmail.com>"]
 readme = "README.md"
