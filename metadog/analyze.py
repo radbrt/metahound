@@ -2,8 +2,8 @@ from sqlalchemy import create_engine, MetaData, Table, select, func, Numeric, In
 
 def analyze_table(tbl_name, schema, engine):
 
-    metadata = MetaData(bind=engine, schema=schema)
-    table = Table(tbl_name, metadata, autoload=True)
+    metadata = MetaData(schema=schema)
+    table = Table(tbl_name, metadata, autoload=True, autoload_with=engine)
 
     # Get the numeric columns
     numeric_columns = [column for column in table.columns if isinstance(column.type, (Numeric, Integer))]
@@ -24,11 +24,11 @@ def analyze_table(tbl_name, schema, engine):
             func.count(distinct(column)).label(f"{column.name}__unique_count"),
             func.count(column).label(f"{column.name}__null_count")
         ]
-        
+
     all_selects = numeric_selects + char_selects + [func.count()]
     stmt = select(all_selects)
-    result = engine.execute(stmt)
-
-    result_dict = [dict(row) for row in result]
+    with engine.connect() as conn:
+        result = conn.execute(stmt)
+        result_dict = [dict(row) for row in result]
 
     return result_dict

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metadog"
-version = "0.1.0"
+version = "2.0.0"
 description = ""
 authors = ["Henning <henning.holgersen@gmail.com>"]
 readme = "README.md"
@@ -29,6 +29,7 @@ snowflake = ["snowflake-sqlalchemy"]
 azure = ["azure-identity", "azure-storage-blob"]
 s3 = ["s3fs"]
 postgres = ["psycopg2-binary"]
+bigquery = ["sqlalchemy-bigquery"]
 
 [build-system]
 requires = ["poetry-core"]
