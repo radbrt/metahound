@@ -139,6 +139,29 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
                     if do_analyze:
                         backend.merge_database_stats(domain=source['name'], db_json=stats)
 
+            case "oracle":
+                logger.info(f"Scanning Oracle {source['name']}")
+                from metadog.db_scanners.oracle_scanner import OracleScanner
+                config = source['connection']
+                do_analyze = source.get("analyze", True) and not no_stats
+                db_scanner = OracleScanner(**config)
+                catalog, stats = db_scanner.profile_db(config.get("service_name", source['name']), do_analyze)
+                backend.merge_database_crawl(domain=source['name'], db_json=catalog)
+                if do_analyze:
+                    backend.merge_database_stats(domain=source['name'], db_json=stats)
+
+            case "mssql":
+                logger.info(f"Scanning MSSQL {source['name']}")
+                from metadog.db_scanners.mssql_scanner import MSSQLScanner
+                for db in source["databases"]:
+                    config = source['connection']
+                    do_analyze = source.get("analyze", True) and not no_stats
+                    db_scanner = MSSQLScanner(database=db, **config)
+                    catalog, stats = db_scanner.profile_db(db, do_analyze)
+                    backend.merge_database_crawl(domain=source['name'], db_json=catalog)
+                    if do_analyze:
+                        backend.merge_database_stats(domain=source['name'], db_json=stats)
+
             case "sftp":
                 logger.info(f"Scanning sftp {source['name']}")
                 get_schemas = source.get("get_schemas", False)

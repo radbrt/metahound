@@ -107,6 +107,8 @@ sources:
 | `snowflake` | Snowflake data warehouse |
 | `database` | Generic SQL database (PostgreSQL, MySQL, etc.) |
 | `bigquery` | Google BigQuery (requires `pip install metadog[bigquery]`) |
+| `oracle` | Oracle Database (requires `pip install metadog[oracle]`) |
+| `mssql` | Microsoft SQL Server (requires `pip install metadog[mssql]`) |
 | `sftp` | Remote SFTP servers |
 | `s3` | AWS S3 (or S3-compatible) blob storage |
 | `az` | Azure Storage Accounts |
@@ -122,6 +124,38 @@ sources:
     datasets:
       - my_dataset
 ```
+
+**Oracle example** (`pip install metadog[oracle]`):
+
+```yaml
+  - name: my_oracle
+    type: oracle
+    connection:
+      host: oracle.db.local
+      port: 1521
+      username: my_user
+      password: {{ ORACLE_PASSWORD }}
+      service_name: ORCLPDB1
+```
+
+Oracle connects to a single service (identified by `service_name`) and enumerates all schemas within it. There is no `databases` list — the service itself is the top-level scan target. `port` defaults to `1521`. An optional `driver` key can be set to `cx_oracle` if you prefer the legacy driver; the default is `oracledb`.
+
+**MSSQL example** (`pip install metadog[mssql]`):
+
+```yaml
+  - name: my_sqlserver
+    type: mssql
+    connection:
+      host: sqlserver.db.local
+      port: 1433
+      username: my_user
+      password: {{ MSSQL_PASSWORD }}
+    databases:
+      - sales
+      - inventory
+```
+
+`port` defaults to `1433`. An optional `driver` key can be set to `pyodbc` if you have ODBC drivers installed; the default is `pymssql`.
 
 See `metadog/connection_handlers/README.md` for full connection configuration details.
 
