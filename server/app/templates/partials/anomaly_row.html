@@ -1,0 +1,25 @@
+{% for a in anomalies %}
+<tr id="anomaly-{{ a.id }}">
+  <td class="px-6 py-4 text-sm text-gray-900 font-mono truncate max-w-xs">{{ a.metric_uri }}</td>
+  <td class="px-6 py-4 text-sm text-gray-700">{{ "%.2f"|format(a.observed_value) if a.observed_value is not none else "—" }}</td>
+  <td class="px-6 py-4 text-sm text-red-600 font-medium">{{ "%.2f"|format(a.z_score) if a.z_score is not none else "—" }}</td>
+  <td class="px-6 py-4 text-sm text-gray-500">{{ a.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+  <td class="px-6 py-4 text-sm">
+    {% if a.is_acknowledged %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Acknowledged</span>
+    {% else %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Open</span>
+    {% endif %}
+  </td>
+  <td class="px-6 py-4 text-right">
+    {% if not a.is_acknowledged %}
+    <button
+      hx-patch="/anomalies/{{ a.id }}/acknowledge"
+      hx-target="#anomaly-{{ a.id }}"
+      hx-swap="outerHTML"
+      class="text-sm text-indigo-600 hover:underline"
+    >Acknowledge</button>
+    {% endif %}
+  </td>
+</tr>
+{% endfor %}

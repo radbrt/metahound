@@ -1,4 +1,3 @@
-from prophet import Prophet
 import pandas as pd
 import numpy as np
 
@@ -9,6 +8,7 @@ class OutlierDetector:
 
 
     def get_outliers_in_df(self, df):
+        from prophet import Prophet
         m = Prophet()
         m.fit(df)
         pred = m.predict(df)

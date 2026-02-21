@@ -11,11 +11,7 @@ from metadog.file_handlers.jsonl_handler import JSONLHandler
 from metadog.file_handlers.csv_handler import CSVHandler
 from metadog.backend_handlers import GenericBackendHandler
 from metadog.db_scanners import GenericDBScanner
-from metadog.db_scanners.snowflake_scanner import SnowflakeScanner
 import pandas as pd
-
-from metadog.outlierdetection import OutlierDetector, zIndex
-
 
 load_dotenv()
 
@@ -86,6 +82,7 @@ def scan_fn(select, no_stats):
 
             case "snowflake":
                 print(f"Scanning snowflake {source['name']}")
+                from metadog.db_scanners.snowflake_scanner import SnowflakeScanner
                 for db in source["databases"]:
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
@@ -191,6 +188,68 @@ def handle_file(file_name, filesystem, get_schemas):
         return {"file": file_name, "properties": {} }
 
 
+def push_fn(api_url, api_token):
+    """Serialize local DB and POST it to the Metadog server ingest endpoint."""
+    import requests
+
+    connection_uri = os.getenv("METADOG_BACKEND_URI")
+    if connection_uri:
+        backend = GenericBackendHandler(connection_uri=connection_uri)
+    else:
+        backend = GenericBackendHandler()
+
+    if not api_token:
+        api_token = os.getenv("METADOG_API_TOKEN")
+    if not api_token:
+        raise ValueError("No API token provided. Set METADOG_API_TOKEN or use --token.")
+
+    if not api_url:
+        api_url = os.getenv("METADOG_API_URL")
+    if not api_url:
+        raise ValueError("No API URL provided. Set METADOG_API_URL or use --api-url.")
+
+    payload = backend.get_scan_payload()
+    response = requests.post(
+        f"{api_url}/api/v1/ingest",
+        json=payload,
+        headers={"Authorization": f"Bearer {api_token}"},
+    )
+    response.raise_for_status()
+    result = response.json()
+    print(f"Push successful: {result}")
+
+
+def _set_env_value(env_path: str, key: str, value: str) -> None:
+    lines = []
+    found = False
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.startswith(f"{key}="):
+                lines[i] = f"{key}={value}\n"
+                found = True
+                break
+    if not found:
+        lines.append(f"{key}={value}\n")
+    with open(env_path, "w") as f:
+        f.writelines(lines)
+
+
+def token_set_fn(token: str) -> None:
+    """Write METADOG_API_TOKEN to the local .env file."""
+    env_path = os.path.join(os.getcwd(), ".env")
+    _set_env_value(env_path, "METADOG_API_TOKEN", token)
+    print("Token saved to .env")
+
+
+def url_set_fn(api_url: str) -> None:
+    """Write METADOG_API_URL to the local .env file."""
+    env_path = os.path.join(os.getcwd(), ".env")
+    _set_env_value(env_path, "METADOG_API_URL", api_url)
+    print("API URL saved to .env")
+
+
 def warnings_fn(algorithm):
     """
     Print warnings about the current project
@@ -203,8 +262,10 @@ def warnings_fn(algorithm):
         backend = GenericBackendHandler()
 
     if algorithm == 'prophet':
+        from metadog.outlierdetection import OutlierDetector
         analyzer = OutlierDetector()
     elif algorithm == 'zindex':
+        from metadog.outlierdetection import zIndex
         analyzer = zIndex(threshold=2.2)
     else:
         raise NotImplementedError("Algorithm not implemented")

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 import fsspec
 import csv
 from metadog.json_schema import sample_file, generate_schema
@@ -174,13 +174,77 @@ class GenericBackendHandler():
 
 
     def get_partition(self, partition):
-        df = pd.read_sql_query("""
-        SELECT ts as ds, CAST(metric_value as FLOAT) as y FROM table_metrics WHERE uri = '{}'
-        ORDER BY ds
-        LIMIT 1000
-        """.format(partition), self.connection)
-
+        query = text(
+            "SELECT ts as ds, CAST(metric_value AS FLOAT) as y FROM table_metrics"
+            " WHERE uri = :uri ORDER BY ds LIMIT 1000"
+        )
+        df = pd.read_sql_query(query, self.connection, params={"uri": partition})
         return df
+
+    def get_scan_payload(self) -> dict:
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        sources_data = []
+        for source in session.query(Sources).all():
+            source_dict = {
+                "id": source.id,
+                "name": source.name,
+                "type": source.type,
+                "uri": source.uri,
+                "tables": [],
+                "files": [],
+            }
+
+            for table in source.tables:
+                table_dict = {
+                    "id": table.id,
+                    "name": table.name,
+                    "uri": table.uri,
+                    "db_name": table.db_name,
+                    "schema_name": table.schema_name,
+                    "fields": [],
+                    "metrics": [],
+                }
+                for field in table.fields:
+                    table_dict["fields"].append({
+                        "id": field.id,
+                        "name": field.name,
+                        "type": field.type,
+                        "uri": field.uri,
+                    })
+                for metric in table.table_metrics:
+                    table_dict["metrics"].append({
+                        "id": metric.id,
+                        "metric_name": metric.metric_name,
+                        "metric_value": metric.metric_value,
+                        "uri": metric.uri,
+                        "ts": metric.ts.isoformat() if metric.ts else None,
+                    })
+                source_dict["tables"].append(table_dict)
+
+            for file in source.files:
+                file_dict = {
+                    "id": file.id,
+                    "name": file.name,
+                    "uri": file.uri,
+                    "filetype": file.filetype,
+                    "file_encoding": file.file_encoding,
+                    "fields": [],
+                }
+                for field in file.fields:
+                    file_dict["fields"].append({
+                        "id": field.id,
+                        "name": field.name,
+                        "type": field.type,
+                        "uri": field.uri,
+                    })
+                source_dict["files"].append(file_dict)
+
+            sources_data.append(source_dict)
+
+        session.close()
+        return {"sources": sources_data, "cli_version": "0.1.0"}
 
 
     def get_partitions(self):

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Scans — Metadog{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-6">Ingest History</h1>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Received At</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CLI Version</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sources</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for e in events %}
+      <tr>
+        <td class="px-6 py-4 text-sm text-gray-500">{{ e.id }}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">{{ e.received_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">{{ e.cli_version or "—" }}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">{{ e.source_count }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-400">No ingest events yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

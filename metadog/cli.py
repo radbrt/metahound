@@ -1,7 +1,7 @@
 
 
 import click
-from metadog.cli_functions import init_fn, scan_fn, warnings_fn, backend_fn
+from metadog.cli_functions import init_fn, scan_fn, warnings_fn, backend_fn, push_fn, token_set_fn, url_set_fn
 
 
 @click.group()
@@ -42,6 +42,34 @@ def warnings(algorithm='zindex'):
     Analyze database statistics and print warnings based on predicted values
     """
     warnings_fn(algorithm)
+
+
+@metadog.command()
+@click.option('--api-url', default=None, help='Metadog server URL (overrides METADOG_API_URL)')
+@click.option('--token', default=None, help='API token (overrides METADOG_API_TOKEN)')
+def push(api_url, token):
+    """Push local scan data to the Metadog server."""
+    push_fn(api_url=api_url, api_token=token)
+
+
+@metadog.group()
+def config():
+    """Manage local Metadog configuration."""
+    pass
+
+
+@config.command('set-token')
+@click.argument('token')
+def set_token(token):
+    """Save an API token to the local .env file."""
+    token_set_fn(token)
+
+
+@config.command('set-url')
+@click.argument('api_url')
+def set_url(api_url):
+    """Save the Metadog server URL to the local .env file."""
+    url_set_fn(api_url)
 
 
 @metadog.command()
