@@ -1,6 +1,10 @@
+import logging
 from sqlalchemy import create_engine, MetaData, Table, select, func, Numeric, Integer, String, distinct, inspect
 from sqlalchemy.engine import URL
-from metadog.json_schema import generate_schema, pick_datatype, infer_datatype, count_sample, infer_datatype, count_sample, generate_schema, pick_datatype, convert_schema_to_singer
+from metadog.json_schema import generate_schema, pick_datatype, infer_datatype, count_sample, convert_schema_to_singer
+
+logger = logging.getLogger(__name__)
+
 
 class GenericDBScanner():
 
@@ -17,7 +21,7 @@ class GenericDBScanner():
 
 
     def _connect(self):
-        url = URL(
+        url = URL.create(
             drivername=self.drivername,
             host=self.host,
             username=self.username,
@@ -37,10 +41,10 @@ class GenericDBScanner():
         return f"{self.drivername}://{self.host}"
 
 
-    def analyze_table(self, tbl_name, schema):
+    def analyze_table(self, tbl_name: str, schema: str) -> list:
 
-        metadata = MetaData(bind=self.engine, schema=schema)
-        table = Table(tbl_name, metadata, autoload=True)
+        metadata = MetaData(schema=schema)
+        table = Table(tbl_name, metadata, autoload=True, autoload_with=self.engine)
 
         # Get the numeric columns
         numeric_columns = [column for column in table.columns if isinstance(column.type, (Numeric, Integer))]
@@ -64,14 +68,14 @@ class GenericDBScanner():
 
         all_selects = numeric_selects + char_selects + [func.count()]
         stmt = select(all_selects)
-        result = self.engine.execute(stmt)
-
-        result_dict = [dict(row) for row in result]
+        with self.engine.connect() as conn:
+            result = conn.execute(stmt)
+            result_dict = [dict(row) for row in result]
 
         return result_dict
-    
 
-    def get_table_schema(self, schema_name, table_name: str) -> str:
+
+    def get_table_schema(self, schema_name: str, table_name: str) -> list:
         inspector = inspect(self.engine)
         tbl_schema = inspector.get_columns(schema=schema_name, table_name=table_name)
         return tbl_schema
@@ -89,7 +93,7 @@ class GenericDBScanner():
         return schemas
 
 
-    def profile_db(self, db_name, do_scan) -> tuple:
+    def profile_db(self, db_name: str, do_scan: bool) -> tuple:
         """
         Profile a database and return a list of singer schemas.
         """
@@ -101,7 +105,7 @@ class GenericDBScanner():
             tables = self.get_tables_in_schema(schema)
             tbl_schemas = []
             for table in tables:
-                print(f"Getting {table} from {schema}")
+                logger.debug(f"Getting {table} from {schema}")
                 tbl_schema = self.get_table_schema(schema, table)
                 gotten_table_schema = convert_schema_to_singer(tbl_schema)
                 gotten_table_schema["name"] = table
@@ -111,8 +115,5 @@ class GenericDBScanner():
                     all_stats["stats"].append({"table": table, "schema": schema, "stats": stats})
 
             full_scan["schemas"][schema] = tbl_schemas
-
-            # merge_database_crawl(db_name, full_scan)
-            # merge_database_stats(db_name, all_stats)
 
         return full_scan, all_stats
