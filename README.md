@@ -191,8 +191,34 @@ metahound scan
 
 Parses the configuration file, scans each source, and writes results to the backend database. Options:
 
-- `-s / --select <name>` — scan only the named source
+- `-s / --select <names>` — scan only the named source(s), comma-separated
+
 - `--no-stats` — skip collecting table statistics (faster)
+
+### Check for schema changes
+
+Every scan records a snapshot of each source's schema and diffs it against the
+previous scan. The first scan of a source establishes a silent baseline; after
+that, changes are recorded as events:
+
+```sh
+metahound changes
+```
+
+Each change is classified as **breaking** (column removed, column type changed,
+table removed, file schema changed) or **info** (table, column or file added).
+By default the command shows changes from the most recent scan of each source;
+use `--since <ISO timestamp>` to look further back.
+
+To gate an ingest pipeline, run a scan followed by `changes --fail-on` in a
+pre-ingest task (Airflow, Dagster, cron, CI):
+
+```sh
+metahound scan && metahound changes --fail-on breaking
+```
+
+The command exits non-zero if any breaking change (or with `--fail-on any`,
+any change at all) was detected, so the pipeline stops before bad data lands.
 
 ### Check for anomalies
 
@@ -247,6 +273,7 @@ These are saved to your `.env` file as `METAHOUND_API_URL` and `METAHOUND_API_TO
 | `metahound init <name>` | Initialize a new project folder |
 | `metahound backend` | Set up the backend database schema |
 | `metahound scan` | Run a scan of configured sources |
+| `metahound changes` | Show schema changes detected by scans; `--fail-on` gates pipelines |
 | `metahound warnings` | Detect anomalies in collected metrics |
 | `metahound status` | Print a summary of sources and recent scans |
 | `metahound push` | Push local data to a Metahound server |
