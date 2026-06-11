@@ -1,7 +1,7 @@
 import logging
 from sqlalchemy import create_engine, MetaData, Table, select, func, Numeric, Integer, String, distinct, inspect
 from sqlalchemy.engine import URL
-from metadog.json_schema import generate_schema, pick_datatype, infer_datatype, count_sample, convert_schema_to_singer
+from metahound.json_schema import generate_schema, pick_datatype, infer_datatype, count_sample, convert_schema_to_singer
 
 logger = logging.getLogger(__name__)
 

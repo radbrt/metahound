@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8000"
 
     # Database
-    database_url: str = "sqlite:///./metadog_server.db"
+    database_url: str = "sqlite:///./metahound_server.db"
 
     # SMTP
     smtp_host: str = ""

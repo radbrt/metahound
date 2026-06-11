@@ -4,14 +4,14 @@ from dotenv import dotenv_values, load_dotenv
 import os
 import jinja2
 from .setup import run_model_ddls
-from metadog.connection_handlers.sftp_connection import SFTPFileSystem
-from metadog.connection_handlers.s3_connection import S3FileSystem
-from metadog.connection_handlers.az_connection import AZFileSystem
-from metadog.file_handlers.parquet_handler import ParquetHandler
-from metadog.file_handlers.jsonl_handler import JSONLHandler
-from metadog.file_handlers.csv_handler import CSVHandler
-from metadog.backend_handlers import GenericBackendHandler
-from metadog.db_scanners import GenericDBScanner
+from metahound.connection_handlers.sftp_connection import SFTPFileSystem
+from metahound.connection_handlers.s3_connection import S3FileSystem
+from metahound.connection_handlers.az_connection import AZFileSystem
+from metahound.file_handlers.parquet_handler import ParquetHandler
+from metahound.file_handlers.jsonl_handler import JSONLHandler
+from metahound.file_handlers.csv_handler import CSVHandler
+from metahound.backend_handlers import GenericBackendHandler
+from metahound.db_scanners import GenericDBScanner
 import pandas as pd
 import click
 
@@ -21,24 +21,24 @@ logger = logging.getLogger(__name__)
 
 
 def parse_spec() -> dict:
-    spec_txt = open('metadog.yaml', 'r').read()
+    spec_txt = open('metahound.yaml', 'r').read()
 
     de = dotenv_values(".env")
     jinja_parsed = jinja2.Template(spec_txt).render(de)
-    if not os.getenv("METADOG_BACKEND_URI"):
-        if 'METADOG_BACKEND_URI' in de:
-            backend_uri = de['METADOG_BACKEND_URI'] or 'sqlite:///metadog.db'
+    if not os.getenv("METAHOUND_BACKEND_URI"):
+        if 'METAHOUND_BACKEND_URI' in de:
+            backend_uri = de['METAHOUND_BACKEND_URI'] or 'sqlite:///metahound.db'
 
-            os.environ["METADOG_BACKEND_URI"] = backend_uri
+            os.environ["METAHOUND_BACKEND_URI"] = backend_uri
         else:
-            raise Exception("METADOG_BACKEND_URI not set")
+            raise Exception("METAHOUND_BACKEND_URI not set")
     spec = safe_load(jinja_parsed)
 
     return spec
 
 
 def _get_backend() -> GenericBackendHandler:
-    connection_uri = os.getenv("METADOG_BACKEND_URI")
+    connection_uri = os.getenv("METAHOUND_BACKEND_URI")
     if connection_uri:
         return GenericBackendHandler(connection_uri=connection_uri)
     return GenericBackendHandler()
@@ -51,19 +51,19 @@ def backend_fn() -> None:
 
 def init_fn(foldername: str) -> None:
     """
-    Initialize a new metadog project in the specified folder.
+    Initialize a new metahound project in the specified folder.
     """
 
     current_script_dir = os.path.dirname(__file__)
-    source_file_loc = os.path.join(current_script_dir, 'template', 'metadog.template')
+    source_file_loc = os.path.join(current_script_dir, 'template', 'metahound.template')
     source_file = open(source_file_loc, 'r')
     source_file_string = source_file.read()
     source_file.close()
 
-    pth = os.path.join(foldername, 'metadog.yaml')
+    pth = os.path.join(foldername, 'metahound.yaml')
     pwd = os.getcwd()
     if os.path.exists(pth):
-        raise Exception(f"metadog.yaml already exists in {foldername}")
+        raise Exception(f"metahound.yaml already exists in {foldername}")
     else:
         full_path = os.path.join(pwd, pth)
         os.makedirs(foldername, exist_ok=False)
@@ -91,7 +91,7 @@ def _scan_filesystem_source(
 
 def scan_fn(select: str | None, no_stats: bool) -> None:
     """
-    Main scan function, parses the metadog.yaml file, scans the specified sources
+    Main scan function, parses the metahound.yaml file, scans the specified sources
     and writes the results to the backend
     """
 
@@ -104,7 +104,7 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
 
             case "snowflake":
                 logger.info(f"Scanning snowflake {source['name']}")
-                from metadog.db_scanners.snowflake_scanner import SnowflakeScanner
+                from metahound.db_scanners.snowflake_scanner import SnowflakeScanner
                 for db in source["databases"]:
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
@@ -129,7 +129,7 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
 
             case "bigquery":
                 logger.info(f"Scanning BigQuery {source['name']}")
-                from metadog.db_scanners.bigquery_scanner import BigQueryScanner
+                from metahound.db_scanners.bigquery_scanner import BigQueryScanner
                 for dataset in source.get("datasets", []):
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
@@ -141,7 +141,7 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
 
             case "oracle":
                 logger.info(f"Scanning Oracle {source['name']}")
-                from metadog.db_scanners.oracle_scanner import OracleScanner
+                from metahound.db_scanners.oracle_scanner import OracleScanner
                 config = source['connection']
                 do_analyze = source.get("analyze", True) and not no_stats
                 db_scanner = OracleScanner(**config)
@@ -152,7 +152,7 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
 
             case "mssql":
                 logger.info(f"Scanning MSSQL {source['name']}")
-                from metadog.db_scanners.mssql_scanner import MSSQLScanner
+                from metahound.db_scanners.mssql_scanner import MSSQLScanner
                 for db in source["databases"]:
                     config = source['connection']
                     do_analyze = source.get("analyze", True) and not no_stats
@@ -209,7 +209,7 @@ def handle_file(file_name: str, filesystem, get_schemas: bool) -> dict:
 
 
 def push_fn(api_url: str, api_token: str) -> None:
-    """Serialize local DB and POST it to the Metadog server ingest endpoint."""
+    """Serialize local DB and POST it to the Metahound server ingest endpoint."""
     import hashlib
     import json
     import requests
@@ -217,14 +217,14 @@ def push_fn(api_url: str, api_token: str) -> None:
     backend = _get_backend()
 
     if not api_token:
-        api_token = os.getenv("METADOG_API_TOKEN")
+        api_token = os.getenv("METAHOUND_API_TOKEN")
     if not api_token:
-        raise ValueError("No API token provided. Set METADOG_API_TOKEN or use --token.")
+        raise ValueError("No API token provided. Set METAHOUND_API_TOKEN or use --token.")
 
     if not api_url:
-        api_url = os.getenv("METADOG_API_URL")
+        api_url = os.getenv("METAHOUND_API_URL")
     if not api_url:
-        raise ValueError("No API URL provided. Set METADOG_API_URL or use --api-url.")
+        raise ValueError("No API URL provided. Set METAHOUND_API_URL or use --api-url.")
 
     payload = backend.get_scan_payload()
 
@@ -268,16 +268,16 @@ def _set_env_value(env_path: str, key: str, value: str) -> None:
 
 
 def token_set_fn(token: str) -> None:
-    """Write METADOG_API_TOKEN to the local .env file."""
+    """Write METAHOUND_API_TOKEN to the local .env file."""
     env_path = os.path.join(os.getcwd(), ".env")
-    _set_env_value(env_path, "METADOG_API_TOKEN", token)
+    _set_env_value(env_path, "METAHOUND_API_TOKEN", token)
     click.echo("Token saved to .env")
 
 
 def url_set_fn(api_url: str) -> None:
-    """Write METADOG_API_URL to the local .env file."""
+    """Write METAHOUND_API_URL to the local .env file."""
     env_path = os.path.join(os.getcwd(), ".env")
-    _set_env_value(env_path, "METADOG_API_URL", api_url)
+    _set_env_value(env_path, "METAHOUND_API_URL", api_url)
     click.echo("API URL saved to .env")
 
 
@@ -306,10 +306,10 @@ def warnings_fn(algorithm: str, threshold: float | None = None) -> None:
             effective_threshold = threshold if threshold is not None else global_threshold
 
             if effective_algorithm == 'prophet':
-                from metadog.outlierdetection import OutlierDetector
+                from metahound.outlierdetection import OutlierDetector
                 analyzer = OutlierDetector()
             elif effective_algorithm == 'zindex':
-                from metadog.outlierdetection import zIndex
+                from metahound.outlierdetection import zIndex
                 analyzer = zIndex(threshold=effective_threshold)
             else:
                 raise NotImplementedError("Algorithm not implemented")

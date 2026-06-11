@@ -2,8 +2,8 @@ import logging
 from sqlalchemy import create_engine, inspect, text
 import fsspec
 import csv
-from metadog.json_schema import sample_file, generate_schema
-from metadog.setup import Sources, Files, Fields, TableMetrics, Tables, ColumnMetrics, Scans
+from metahound.json_schema import sample_file, generate_schema
+from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, ColumnMetrics, Scans
 from sqlalchemy.orm import sessionmaker
 import os
 import datetime
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class GenericBackendHandler():
-    def __init__(self, connection_uri: str = 'sqlite:///metadog.db'):
+    def __init__(self, connection_uri: str = 'sqlite:///metahound.db'):
         self.connection_uri = connection_uri
 
         self.connection = self._connect()

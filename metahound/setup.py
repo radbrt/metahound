@@ -104,10 +104,10 @@ class Scans(Base):
 
 
 def run_model_ddls():
-    backend_uri = os.getenv("METADOG_BACKEND_URI")
+    backend_uri = os.getenv("METAHOUND_BACKEND_URI")
 
     if backend_uri is None:
-        raise ValueError("METADOG_BACKEND_URI environment variable is not set")
+        raise ValueError("METAHOUND_BACKEND_URI environment variable is not set")
 
     # Create the tables if they don't already exist
     engine = create_engine(backend_uri)
@@ -115,5 +115,5 @@ def run_model_ddls():
 
 
 if __name__ == "__main__":
-    os.environ["METADOG_BACKEND_URI"] = "sqlite:///metadog.db"
+    os.environ["METAHOUND_BACKEND_URI"] = "sqlite:///metahound.db"
     run_model_ddls()

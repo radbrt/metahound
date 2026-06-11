@@ -1,5 +1,5 @@
 import csv
-from metadog.json_schema import generate_schema
+from metahound.json_schema import generate_schema
 import json
 import io
 

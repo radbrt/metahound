@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
-from metadog.db_scanners import GenericDBScanner
+from metahound.db_scanners import GenericDBScanner
 
 
 class BigQueryScanner(GenericDBScanner):

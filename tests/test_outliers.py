@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from metadog.outlierdetection import zIndex
+from metahound.outlierdetection import zIndex
 
 
 def _make_df(values):
@@ -67,7 +67,7 @@ class TestOutlierDetectorProphet:
 
     def test_single_row_returns_empty(self):
         pytest.importorskip("prophet")
-        from metadog.outlierdetection import OutlierDetector
+        from metahound.outlierdetection import OutlierDetector
         detector = OutlierDetector()
         result = detector.get_outliers_in_df(_make_df([42]))
         assert isinstance(result, pd.DataFrame)

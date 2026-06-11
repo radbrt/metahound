@@ -1,4 +1,4 @@
-from metadog.db_scanners import GenericDBScanner
+from metahound.db_scanners import GenericDBScanner
 from snowflake.sqlalchemy import URL
 from sqlalchemy import create_engine
 

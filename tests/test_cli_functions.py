@@ -3,9 +3,9 @@ import pytest
 from unittest.mock import MagicMock, patch, call
 from sqlalchemy.orm import sessionmaker
 
-from metadog.backend_handlers import GenericBackendHandler
-from metadog.setup import Base, Sources, Tables, Files, Scans
-from metadog.cli_functions import _scan_filesystem_source, handle_file, status_fn
+from metahound.backend_handlers import GenericBackendHandler
+from metahound.setup import Base, Sources, Tables, Files, Scans
+from metahound.cli_functions import _scan_filesystem_source, handle_file, status_fn
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ class TestScanFilesystemSource:
         filesystem.get_last_modified.return_value = datetime.datetime(2024, 1, 10)
         filesystem.get_file.return_value = b""
 
-        with patch("metadog.cli_functions.handle_file") as mock_handle:
+        with patch("metahound.cli_functions.handle_file") as mock_handle:
             mock_handle.return_value = {"file": "new.csv", "properties": {}}
             with patch.object(backend, "get_last_modified", return_value=highwater):
                 _scan_filesystem_source("my_source", "sftp", filesystem, backend, False)
@@ -47,7 +47,7 @@ class TestScanFilesystemSource:
         ]
         filesystem.get_last_modified.return_value = datetime.datetime(2024, 2, 1)
 
-        with patch("metadog.cli_functions.handle_file") as mock_handle:
+        with patch("metahound.cli_functions.handle_file") as mock_handle:
             mock_handle.return_value = {"file": "a.csv", "properties": {}}
             with patch.object(backend, "get_last_modified", return_value=datetime.datetime(1970, 1, 1)):
                 with patch.object(backend, "merge_file_crawl") as mock_merge:
@@ -73,7 +73,7 @@ class TestScanFilesystemSource:
         ]
         filesystem.get_last_modified.return_value = datetime.datetime(2024, 1, 1)
 
-        with patch("metadog.cli_functions.handle_file") as mock_handle:
+        with patch("metahound.cli_functions.handle_file") as mock_handle:
             with patch.object(backend, "get_last_modified", return_value=highwater):
                 with patch.object(backend, "merge_file_crawl") as mock_merge:
                     _scan_filesystem_source("my_source", "sftp", filesystem, backend, False)
@@ -89,7 +89,7 @@ class TestScanFilesystemSource:
 class TestStatusFn:
     def test_status_output_contains_source(self, backend_with_data, capsys, monkeypatch):
         monkeypatch.setattr(
-            "metadog.cli_functions._get_backend",
+            "metahound.cli_functions._get_backend",
             lambda: backend_with_data
         )
         status_fn()
@@ -98,7 +98,7 @@ class TestStatusFn:
 
     def test_status_output_table_count(self, backend_with_data, capsys, monkeypatch):
         monkeypatch.setattr(
-            "metadog.cli_functions._get_backend",
+            "metahound.cli_functions._get_backend",
             lambda: backend_with_data
         )
         status_fn()
@@ -108,7 +108,7 @@ class TestStatusFn:
 
     def test_status_no_sources(self, in_memory_backend, capsys, monkeypatch):
         monkeypatch.setattr(
-            "metadog.cli_functions._get_backend",
+            "metahound.cli_functions._get_backend",
             lambda: in_memory_backend
         )
         status_fn()

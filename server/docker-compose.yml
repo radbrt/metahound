@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: metadog
-      POSTGRES_PASSWORD: metadog
-      POSTGRES_DB: metadog
+      POSTGRES_USER: metahound
+      POSTGRES_PASSWORD: metahound
+      POSTGRES_DB: metahound
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U metadog"]
+      test: ["CMD-SHELL", "pg_isready -U metahound"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -18,7 +18,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://metadog:metadog@postgres:5432/metadog
+      DATABASE_URL: postgresql://metahound:metahound@postgres:5432/metahound
     env_file:
       - .env
     depends_on:
