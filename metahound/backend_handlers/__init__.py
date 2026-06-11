@@ -1,6 +1,8 @@
+import json
 import logging
 from sqlalchemy import create_engine, text
-from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans
+from metahound.json_schema import schema_types_to_string
+from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans, SchemaSnapshots, Changes
 from sqlalchemy.orm import sessionmaker
 import datetime
 import pandas as pd
@@ -18,7 +20,7 @@ class GenericBackendHandler():
         engine = create_engine(self.connection_uri)
         return engine
 
-    def register_scan(self, server: str, last_modified) -> None:
+    def register_scan(self, server: str, last_modified) -> int:
         Session = sessionmaker(bind=self.connection)
         session = Session()
 
@@ -26,7 +28,9 @@ class GenericBackendHandler():
 
         session.add(scan)
         session.commit()
+        scan_id = scan.id
         session.close()
+        return scan_id
 
 
     def get_last_modified(self, server: str):
@@ -59,12 +63,13 @@ class GenericBackendHandler():
 
             file_entry = session.query(Files).filter_by(uri=file_uri).first()
             if not file_entry:
-                file_entry = Files(name=file['file'], uri=file_uri, filetype='csv', file_encoding='utf-8')
+                filetype = file['file'].rsplit('.', 1)[-1].lower() if '.' in file['file'] else 'unknown'
+                file_entry = Files(name=file['file'], uri=file_uri, filetype=filetype, file_encoding='utf-8')
 
             if file['properties']:
                 for column in file['properties'].keys():
                     column_uri = f"{file_uri}/{column}"
-                    column_types = '/'.join([f_type for f_type in file['properties'][column]['type'] if f_type != 'null'])
+                    column_types = schema_types_to_string(file['properties'][column])
                     column_entry = session.query(Fields).filter_by(uri=column_uri).first()
                     if not column_entry:
                         column_entry = Fields(name=column, type=column_types, uri=column_uri)
@@ -162,6 +167,103 @@ class GenericBackendHandler():
         session.merge(source)
         session.commit()
         session.close()
+
+
+    def save_snapshot(self, scan_id: int, source_uri: str, snapshot: dict) -> None:
+        """Persist the full schema state of a source as observed by one scan."""
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        row = SchemaSnapshots(
+            scan_id=scan_id,
+            source_uri=source_uri,
+            ts=datetime.datetime.utcnow(),
+            snapshot=json.dumps(snapshot, sort_keys=True),
+        )
+        session.add(row)
+        session.commit()
+        session.close()
+
+
+    def get_latest_snapshot(self, source_uri: str) -> dict | None:
+        """Return the most recent snapshot for a source, or None if never scanned."""
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        row = (
+            session.query(SchemaSnapshots)
+            .filter_by(source_uri=source_uri)
+            .order_by(SchemaSnapshots.id.desc())
+            .first()
+        )
+        session.close()
+
+        if row is None:
+            return None
+        return json.loads(row.snapshot)
+
+
+    def record_changes(self, scan_id: int, source_uri: str, changes: list) -> None:
+        if not changes:
+            return
+
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        ts = datetime.datetime.utcnow()
+        for change in changes:
+            session.add(Changes(
+                scan_id=scan_id,
+                source_uri=source_uri,
+                object_uri=change["object_uri"],
+                change_type=change["change_type"],
+                severity=change["severity"],
+                detail=json.dumps(change.get("detail", {}), sort_keys=True),
+                ts=ts,
+            ))
+        session.commit()
+        session.close()
+
+
+    def get_changes(self, since: datetime.datetime | None = None) -> list:
+        """Return change events as dicts.
+
+        With since=None, returns only changes from the most recent scan of each
+        source; with a timestamp, returns all changes recorded at or after it.
+        """
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        query = session.query(Changes).order_by(Changes.ts, Changes.id)
+        if since is not None:
+            query = query.filter(Changes.ts >= since)
+        rows = query.all()
+
+        if since is None:
+            # Latest scan per source comes from snapshots (every scan writes
+            # one), so a clean scan correctly yields no changes here.
+            latest_scan = {}
+            for snap in session.query(SchemaSnapshots).all():
+                if snap.scan_id is not None:
+                    latest_scan[snap.source_uri] = max(
+                        latest_scan.get(snap.source_uri, 0), snap.scan_id
+                    )
+            rows = [r for r in rows if r.scan_id == latest_scan.get(r.source_uri)]
+
+        changes = [
+            {
+                "ts": row.ts,
+                "scan_id": row.scan_id,
+                "source_uri": row.source_uri,
+                "object_uri": row.object_uri,
+                "change_type": row.change_type,
+                "severity": row.severity,
+                "detail": json.loads(row.detail) if row.detail else {},
+            }
+            for row in rows
+        ]
+        session.close()
+        return changes
 
 
     def get_partition(self, partition: str) -> pd.DataFrame:

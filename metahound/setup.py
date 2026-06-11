@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import declarative_base
 import os
@@ -101,6 +101,33 @@ class Scans(Base):
     server = Column(String)
     scan_time = Column(DateTime)
     last_modified = Column(DateTime)
+
+
+class SchemaSnapshots(Base):
+    """Full schema state of one source as observed by one scan.
+
+    The snapshot column holds JSON of the form
+    {object_uri: {"kind": "table"|"file", "columns": {name: type}}}.
+    """
+    __tablename__ = 'schema_snapshots'
+    id = Column(Integer, primary_key=True)
+    scan_id = Column(Integer, ForeignKey('scans.id'))
+    source_uri = Column(String)
+    ts = Column(DateTime)
+    snapshot = Column(Text)
+
+
+class Changes(Base):
+    """A single schema change event, produced by diffing consecutive snapshots."""
+    __tablename__ = 'changes'
+    id = Column(Integer, primary_key=True)
+    scan_id = Column(Integer, ForeignKey('scans.id'))
+    source_uri = Column(String)
+    object_uri = Column(String)
+    change_type = Column(String)
+    severity = Column(String)
+    detail = Column(Text)
+    ts = Column(DateTime)
 
 
 def run_model_ddls():

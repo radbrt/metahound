@@ -49,7 +49,7 @@ class TestScanFilesystemSource:
             mock_handle.return_value = {"file": "a.csv", "properties": {}}
             with patch.object(backend, "get_last_modified", return_value=datetime.datetime(1970, 1, 1)):
                 with patch.object(backend, "merge_file_crawl") as mock_merge:
-                    with patch.object(backend, "register_scan") as mock_register:
+                    with patch.object(backend, "register_scan", return_value=1) as mock_register:
                         _scan_filesystem_source("my_source", "s3", filesystem, backend, False)
 
         mock_merge.assert_called_once_with(

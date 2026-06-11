@@ -71,23 +71,17 @@ class CSVHandler():
             indicating whether or not the file was empty, and samples is a list
             of samples from the file
         """
-        fullfile = self.filestream.readlines(max_records)
-        csvfile = csv.DictReader(fullfile, fieldnames=None, delimiter=self.delimiter)
+        csvfile = csv.DictReader(self.filestream, fieldnames=None, delimiter=self.delimiter)
         samples = []
 
-
-        current_row = 0
-        for row in csvfile:
+        # Read at most max_records rows, keeping every sample_rate-th one
+        for current_row, row in enumerate(csvfile):
+            if current_row >= max_records:
+                break
             if (current_row % sample_rate) == 0:
                 samples.append(row)
 
-            current_row += 1
-
-            if len(samples) >= max_records:
-                break
-
         # Empty sample to show field selection, if needed
-     # Empty sample to show field selection, if needed
         empty_file = False
         if csvfile.fieldnames is None:
             empty_file = True

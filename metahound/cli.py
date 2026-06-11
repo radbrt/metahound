@@ -1,6 +1,16 @@
 import logging
 import click
-from metahound.cli_functions import init_fn, scan_fn, warnings_fn, backend_fn, push_fn, token_set_fn, url_set_fn, status_fn
+from metahound.cli_functions import (
+    init_fn,
+    scan_fn,
+    warnings_fn,
+    backend_fn,
+    push_fn,
+    token_set_fn,
+    url_set_fn,
+    status_fn,
+    changes_fn,
+)
 
 
 @click.group()
@@ -52,6 +62,15 @@ def warnings(algorithm, threshold):
 def push(api_url, token):
     """Push local scan data to the Metahound server."""
     push_fn(api_url=api_url, api_token=token)
+
+
+@metahound.command()
+@click.option('--since', default=None, help='Show changes recorded at or after this ISO timestamp (default: most recent scan per source)')
+@click.option('--fail-on', type=click.Choice(['breaking', 'any']), default=None,
+              help='Exit non-zero if matching changes exist — use to gate ingest pipelines')
+def changes(since, fail_on):
+    """Show schema changes detected by scans (column/table added, removed, type changed)."""
+    changes_fn(since, fail_on)
 
 
 @metahound.command()
