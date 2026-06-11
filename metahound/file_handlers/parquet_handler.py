@@ -1,5 +1,4 @@
 import pyarrow.parquet as pq
-import io
 
 class ParquetHandler():
     """

@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from metahound.backend_handlers import GenericBackendHandler
-from metahound.setup import Base, Fields, Files, Sources, TableMetrics, Tables
+from metahound.setup import Base, Fields, Sources, TableMetrics, Tables
 
 
 @pytest.fixture

@@ -1,4 +1,3 @@
-import csv
 from metahound.json_schema import generate_schema
 import json
 import io

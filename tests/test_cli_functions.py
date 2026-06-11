@@ -1,11 +1,9 @@
 import datetime
-import pytest
-from unittest.mock import MagicMock, patch, call
-from sqlalchemy.orm import sessionmaker
+from unittest.mock import MagicMock, patch
 
 from metahound.backend_handlers import GenericBackendHandler
-from metahound.setup import Base, Sources, Tables, Files, Scans
-from metahound.cli_functions import _scan_filesystem_source, handle_file, status_fn
+from metahound.setup import Base
+from metahound.cli_functions import _scan_filesystem_source, status_fn
 
 
 # ---------------------------------------------------------------------------

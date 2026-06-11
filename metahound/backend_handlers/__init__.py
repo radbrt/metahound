@@ -1,11 +1,7 @@
 import logging
-from sqlalchemy import create_engine, inspect, text
-import fsspec
-import csv
-from metahound.json_schema import sample_file, generate_schema
-from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, ColumnMetrics, Scans
+from sqlalchemy import create_engine, text
+from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans
 from sqlalchemy.orm import sessionmaker
-import os
 import datetime
 import pandas as pd
 
@@ -150,7 +146,7 @@ class GenericBackendHandler():
             def coerce_float(x):
                 try:
                     return float(x)
-                except:
+                except (TypeError, ValueError):
                     return None
 
             for metric in stat['stats'][0].keys():
