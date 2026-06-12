@@ -267,12 +267,15 @@ class GenericBackendHandler():
 
 
     def get_partition(self, partition: str) -> pd.DataFrame:
+        # Executed via SQLAlchemy rather than pandas.read_sql_query: pandas 2.x
+        # rejects SQLAlchemy 1.4 connectables, which this package still pins.
         query = text(
             "SELECT ts as ds, CAST(metric_value AS FLOAT) as y FROM table_metrics"
             " WHERE uri = :uri ORDER BY ds LIMIT 1000"
         )
-        df = pd.read_sql_query(query, self.connection, params={"uri": partition})
-        return df
+        with self.connection.connect() as conn:
+            rows = conn.execute(query, {"uri": partition}).fetchall()
+        return pd.DataFrame(rows, columns=["ds", "y"])
 
     def get_scan_payload(self) -> dict:
         Session = sessionmaker(bind=self.connection)
@@ -342,8 +345,9 @@ class GenericBackendHandler():
 
     def get_partitions(self) -> list:
         query = text("SELECT DISTINCT uri FROM table_metrics")
-        partitions = pd.read_sql_query(query, self.connection)
-        return list(partitions['uri'])
+        with self.connection.connect() as conn:
+            rows = conn.execute(query).fetchall()
+        return [row[0] for row in rows]
 
 
     def get_status_summary(self) -> dict:
