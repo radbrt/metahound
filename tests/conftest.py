@@ -2,8 +2,8 @@ import datetime
 import pytest
 from sqlalchemy.orm import sessionmaker
 
-from metadog.backend_handlers import GenericBackendHandler
-from metadog.setup import Base, Fields, Files, Sources, TableMetrics, Tables
+from metahound.backend_handlers import GenericBackendHandler
+from metahound.setup import Base, Fields, Sources, TableMetrics, Tables
 
 
 @pytest.fixture

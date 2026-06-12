@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, MetaData, Table, select, func, Numeric, Integer, String, distinct
+from sqlalchemy import MetaData, Table, select, func, Numeric, Integer, String, distinct
 
 def analyze_table(tbl_name, schema, engine):
 

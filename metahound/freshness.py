@@ -1,7 +1,6 @@
 import json
-from sqlalchemy import create_engine, MetaData, Table, select, func
+from sqlalchemy import MetaData, Table, select, func
 import pandas as pd
-from sqlalchemy import select, func, text
 from sqlalchemy.sql import column
 from scipy.stats import zscore
 
@@ -17,7 +16,6 @@ def report_freshness(manifest_path, engine):
         source = parsed_manifest["sources"][source_name]
         loaded_at = source.get("loaded_at")
         if loaded_at:
-            db = source["database"]
             schema = source["schema"]
             table = source["name"]
 

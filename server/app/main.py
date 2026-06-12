@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="Metadog Server", lifespan=lifespan)
+app = FastAPI(title="Metahound Server", lifespan=lifespan)
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 

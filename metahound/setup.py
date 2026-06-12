@@ -1,5 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm import declarative_base
 import os
 
@@ -103,11 +103,38 @@ class Scans(Base):
     last_modified = Column(DateTime)
 
 
+class SchemaSnapshots(Base):
+    """Full schema state of one source as observed by one scan.
+
+    The snapshot column holds JSON of the form
+    {object_uri: {"kind": "table"|"file", "columns": {name: type}}}.
+    """
+    __tablename__ = 'schema_snapshots'
+    id = Column(Integer, primary_key=True)
+    scan_id = Column(Integer, ForeignKey('scans.id'))
+    source_uri = Column(String)
+    ts = Column(DateTime)
+    snapshot = Column(Text)
+
+
+class Changes(Base):
+    """A single schema change event, produced by diffing consecutive snapshots."""
+    __tablename__ = 'changes'
+    id = Column(Integer, primary_key=True)
+    scan_id = Column(Integer, ForeignKey('scans.id'))
+    source_uri = Column(String)
+    object_uri = Column(String)
+    change_type = Column(String)
+    severity = Column(String)
+    detail = Column(Text)
+    ts = Column(DateTime)
+
+
 def run_model_ddls():
-    backend_uri = os.getenv("METADOG_BACKEND_URI")
+    backend_uri = os.getenv("METAHOUND_BACKEND_URI")
 
     if backend_uri is None:
-        raise ValueError("METADOG_BACKEND_URI environment variable is not set")
+        raise ValueError("METAHOUND_BACKEND_URI environment variable is not set")
 
     # Create the tables if they don't already exist
     engine = create_engine(backend_uri)
@@ -115,5 +142,5 @@ def run_model_ddls():
 
 
 if __name__ == "__main__":
-    os.environ["METADOG_BACKEND_URI"] = "sqlite:///metadog.db"
+    os.environ["METAHOUND_BACKEND_URI"] = "sqlite:///metahound.db"
     run_model_ddls()

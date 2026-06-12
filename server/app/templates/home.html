@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Home — Metadog{% endblock %}
+{% block title %}Home — Metahound{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
@@ -7,7 +7,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
   <div class="bg-white rounded-lg shadow p-6">
     <p class="text-sm text-gray-500 font-medium">Sources</p>
-    <p class="mt-1 text-3xl font-bold text-indigo-600">{{ source_count }}</p>
+    <p class="mt-1 text-3xl font-bold text-[#32a8e1]">{{ source_count }}</p>
   </div>
   <div class="bg-white rounded-lg shadow p-6">
     <p class="text-sm text-gray-500 font-medium">Open Anomalies</p>
@@ -23,7 +23,7 @@
 <div class="bg-white rounded-lg shadow">
   <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
     <h2 class="text-lg font-semibold text-gray-900">Recent Anomalies</h2>
-    <a href="/anomalies" class="text-sm text-indigo-600 hover:underline">View all</a>
+    <a href="/anomalies" class="text-sm text-[#32a8e1] hover:underline">View all</a>
   </div>
   <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200">

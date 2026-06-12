@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "metadog"
+name = "metahound"
 version = "2.0.1"
 description = ""
 authors = ["Henning <henning.holgersen@gmail.com>"]
@@ -38,4 +38,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-metadog = 'metadog.cli:metadog'
+metahound = 'metahound.cli:metahound'

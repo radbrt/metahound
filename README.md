@@ -1,10 +1,10 @@
-# Metadog
+# Metahound
 
 An open-source, headless observability tool for data engineers.
 
-## The goal of Metadog
+## The goal of Metahound
 
-Metadog is designed to easily scan data sources like databases, SFTP servers and cloud storage through a declarative YAML configuration.
+Metahound is designed to easily scan data sources like databases, SFTP servers and cloud storage through a declarative YAML configuration.
 
 This enables you to:
 - Keep an inventory of data sources and track changes over time
@@ -14,7 +14,7 @@ This enables you to:
 
 ## What it is (and isn't)
 
-The core Metadog CLI is **headless** — it has no built-in dashboard and writes everything to a database you control. This is intentional: direct database access to a sensible data model is safer and more flexible than yet another REST API. Build your own dashboard on top, or query the database directly.
+The core Metahound CLI is **headless** — it has no built-in dashboard and writes everything to a database you control. This is intentional: direct database access to a sensible data model is safer and more flexible than yet another REST API. Build your own dashboard on top, or query the database directly.
 
 An optional **self-hosted server** component (`server/`) provides a REST API and basic web UI for teams who want a centralized metadata store and a starting point for a dashboard.
 
@@ -23,29 +23,29 @@ An optional **self-hosted server** component (`server/`) provides a REST API and
 Install the package and initialize a project:
 
 ```sh
-pip install metadog
-metadog init <name-of-project>
+pip install metahound
+metahound init <name-of-project>
 ```
 
-This creates a new folder with the base files needed to get started, including a `metadog.yaml` configuration file and a `.env` file for secrets.
+This creates a new folder with the base files needed to get started, including a `metahound.yaml` configuration file and a `.env` file for secrets.
 
 ### Set up the backend
 
-By default, Metadog uses a local SQLite database named `metadog.db`. Initialize it with:
+By default, Metahound uses a local SQLite database named `metahound.db`. Initialize it with:
 
 ```sh
-metadog backend
+metahound backend
 ```
 
-To use PostgreSQL instead, set the `METADOG_BACKEND_URI` environment variable before running `metadog backend`:
+To use PostgreSQL instead, set the `METAHOUND_BACKEND_URI` environment variable before running `metahound backend`:
 
 ```sh
-export METADOG_BACKEND_URI='postgresql+psycopg2://user:password@localhost:5432/mydb'
+export METAHOUND_BACKEND_URI='postgresql+psycopg2://user:password@localhost:5432/mydb'
 ```
 
 ## Configuring sources
 
-Edit `metadog.yaml` to define the sources you want to scan. The file supports Jinja2 templating, so secrets can be pulled from your `.env` file.
+Edit `metahound.yaml` to define the sources you want to scan. The file supports Jinja2 templating, so secrets can be pulled from your `.env` file.
 
 ```yaml
 version: 1
@@ -106,9 +106,9 @@ sources:
 |------|-------------|
 | `snowflake` | Snowflake data warehouse |
 | `database` | Generic SQL database (PostgreSQL, MySQL, etc.) |
-| `bigquery` | Google BigQuery (requires `pip install metadog[bigquery]`) |
-| `oracle` | Oracle Database (requires `pip install metadog[oracle]`) |
-| `mssql` | Microsoft SQL Server (requires `pip install metadog[mssql]`) |
+| `bigquery` | Google BigQuery (requires `pip install metahound[bigquery]`) |
+| `oracle` | Oracle Database (requires `pip install metahound[oracle]`) |
+| `mssql` | Microsoft SQL Server (requires `pip install metahound[mssql]`) |
 | `sftp` | Remote SFTP servers |
 | `s3` | AWS S3 (or S3-compatible) blob storage |
 | `az` | Azure Storage Accounts |
@@ -125,7 +125,7 @@ sources:
       - my_dataset
 ```
 
-**Oracle example** (`pip install metadog[oracle]`):
+**Oracle example** (`pip install metahound[oracle]`):
 
 ```yaml
   - name: my_oracle
@@ -140,7 +140,7 @@ sources:
 
 Oracle connects to a single service (identified by `service_name`) and enumerates all schemas within it. There is no `databases` list — the service itself is the top-level scan target. `port` defaults to `1521`. An optional `driver` key can be set to `cx_oracle` if you prefer the legacy driver; the default is `oracledb`.
 
-**MSSQL example** (`pip install metadog[mssql]`):
+**MSSQL example** (`pip install metahound[mssql]`):
 
 ```yaml
   - name: my_sqlserver
@@ -157,7 +157,7 @@ Oracle connects to a single service (identified by `service_name`) and enumerate
 
 `port` defaults to `1433`. An optional `driver` key can be set to `pyodbc` if you have ODBC drivers installed; the default is `pymssql`.
 
-See `metadog/connection_handlers/README.md` for full connection configuration details.
+See `metahound/connection_handlers/README.md` for full connection configuration details.
 
 ### Supported file formats
 
@@ -181,25 +181,51 @@ Define the corresponding value in `.env`:
 MY_SECRET_PASSWORD=sup3rs3cret!
 ```
 
-## Running metadog
+## Running metahound
 
 ### Scan sources
 
 ```sh
-metadog scan
+metahound scan
 ```
 
 Parses the configuration file, scans each source, and writes results to the backend database. Options:
 
-- `-s / --select <name>` — scan only the named source
+- `-s / --select <names>` — scan only the named source(s), comma-separated
+
 - `--no-stats` — skip collecting table statistics (faster)
+
+### Check for schema changes
+
+Every scan records a snapshot of each source's schema and diffs it against the
+previous scan. The first scan of a source establishes a silent baseline; after
+that, changes are recorded as events:
+
+```sh
+metahound changes
+```
+
+Each change is classified as **breaking** (column removed, column type changed,
+table removed, file schema changed) or **info** (table, column or file added).
+By default the command shows changes from the most recent scan of each source;
+use `--since <ISO timestamp>` to look further back.
+
+To gate an ingest pipeline, run a scan followed by `changes --fail-on` in a
+pre-ingest task (Airflow, Dagster, cron, CI):
+
+```sh
+metahound scan && metahound changes --fail-on breaking
+```
+
+The command exits non-zero if any breaking change (or with `--fail-on any`,
+any change at all) was detected, so the pipeline stops before bad data lands.
 
 ### Check for anomalies
 
 After running at least two scans, detect anomalies in collected metrics:
 
 ```sh
-metadog warnings
+metahound warnings
 ```
 
 Two algorithms are available via the `-a / --algorithm` flag:
@@ -210,60 +236,61 @@ Two algorithms are available via the `-a / --algorithm` flag:
 The Z-score threshold can be overridden with `-t / --threshold`:
 
 ```sh
-metadog warnings --threshold 2.5
+metahound warnings --threshold 2.5
 ```
 
-The default threshold is `3.0`. A lower value flags more anomalies; a higher value flags fewer. The threshold can also be set per-source in `metadog.yaml`.
+The default threshold is `3.0`. A lower value flags more anomalies; a higher value flags fewer. The threshold can also be set per-source in `metahound.yaml`.
 
 ### Check status
 
 Print a summary of all sources and recent scans stored in the backend:
 
 ```sh
-metadog status
+metahound status
 ```
 
-### Push to a Metadog server
+### Push to a Metahound server
 
-If you're running the self-hosted server or using Metadog Cloud, push local scan results with:
+If you're running the self-hosted server or using Metahound Cloud, push local scan results with:
 
 ```sh
-metadog push --api-url https://your-server.example.com --token <your-token>
+metahound push --api-url https://your-server.example.com --token <your-token>
 ```
 
 Store the URL and token locally to avoid passing them on every run:
 
 ```sh
-metadog config set-url https://your-server.example.com
-metadog config set-token <your-token>
+metahound config set-url https://your-server.example.com
+metahound config set-token <your-token>
 ```
 
-These are saved to your `.env` file as `METADOG_API_URL` and `METADOG_API_TOKEN`.
+These are saved to your `.env` file as `METAHOUND_API_URL` and `METAHOUND_API_TOKEN`.
 
 ## CLI reference
 
 | Command | Description |
 |---------|-------------|
-| `metadog init <name>` | Initialize a new project folder |
-| `metadog backend` | Set up the backend database schema |
-| `metadog scan` | Run a scan of configured sources |
-| `metadog warnings` | Detect anomalies in collected metrics |
-| `metadog status` | Print a summary of sources and recent scans |
-| `metadog push` | Push local data to a Metadog server |
-| `metadog config set-token <token>` | Save API token to `.env` |
-| `metadog config set-url <url>` | Save server URL to `.env` |
+| `metahound init <name>` | Initialize a new project folder |
+| `metahound backend` | Set up the backend database schema |
+| `metahound scan` | Run a scan of configured sources |
+| `metahound changes` | Show schema changes detected by scans; `--fail-on` gates pipelines |
+| `metahound warnings` | Detect anomalies in collected metrics |
+| `metahound status` | Print a summary of sources and recent scans |
+| `metahound push` | Push local data to a Metahound server |
+| `metahound config set-token <token>` | Save API token to `.env` |
+| `metahound config set-url <url>` | Save server URL to `.env` |
 
 Pass `-v / --verbose` to any command for debug-level logging.
 
 ## Q&A
 
-**Q**: Why doesn't metadog use a standard data model like \<insert-your-favorite-metadata-standard\>?
+**Q**: Why doesn't metahound use a standard data model like \<insert-your-favorite-metadata-standard\>?
 
 **A**: Some possible reasons include:
 - It was too complex and would take too much effort for users to understand
 - It didn't contain some fields I wanted
 - I didn't know about it
 
-**Q**: Will Metadog do lineage?
+**Q**: Will Metahound do lineage?
 
-**A**: Probably not, because scanning data sources is distinct from the code that produces lineage. It would be cool to have a lineage tool compatible with the metadog backend though.
+**A**: Probably not, because scanning data sources is distinct from the code that produces lineage. It would be cool to have a lineage tool compatible with the metahound backend though.
