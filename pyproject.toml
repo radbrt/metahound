@@ -1,12 +1,23 @@
 [tool.poetry]
 name = "metahound"
-version = "2.0.1"
-description = ""
+version = "2.1.0"
+description = "Data observability CLI that scans upstream databases and file stores, detects schema changes, and fails your pipeline before bad data lands"
 authors = ["Henning <henning.holgersen@gmail.com>"]
+license = "Apache-2.0"
 readme = "README.md"
+homepage = "https://github.com/radbrt/metadog"
+repository = "https://github.com/radbrt/metadog"
+keywords = ["data-observability", "schema-drift", "data-quality", "data-engineering", "schema-change-detection"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "Topic :: Database",
+    "Topic :: System :: Monitoring",
+]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.10,<4.0"
 fsspec = ">2023.6"
 sqlalchemy = "<2.0"
 paramiko = ">3.2"
@@ -17,12 +28,18 @@ jinja2 = ">3.1"
 click = "~8.1.3"
 pandas = ">=1.5"
 pyarrow = ">=10.0"
-prophet = "~1.1.4"
-snowflake-sqlalchemy = "~1.5.0"
 tabulate = "~0.9.0"
-psycopg2-binary = ">2.9.8"
 numpy = "<2.0"
 requests = ">=2.31"
+prophet = { version = "~1.1.4", optional = true }
+snowflake-sqlalchemy = { version = "~1.5.0", optional = true }
+psycopg2-binary = { version = ">2.9.8", optional = true }
+azure-identity = { version = ">=1.15", optional = true }
+azure-storage-blob = { version = ">=12.19", optional = true }
+s3fs = { version = ">=2023.6", optional = true }
+sqlalchemy-bigquery = { version = ">=1.9", optional = true, python = ">=3.10,<3.15" }
+oracledb = { version = ">=2.0", optional = true }
+pymssql = { version = ">=2.2", optional = true }
 
 [tool.poetry.extras]
 snowflake = ["snowflake-sqlalchemy"]
@@ -30,8 +47,20 @@ azure = ["azure-identity", "azure-storage-blob"]
 s3 = ["s3fs"]
 postgres = ["psycopg2-binary"]
 bigquery = ["sqlalchemy-bigquery"]
-oracle = ["python-oracledb"]
+oracle = ["oracledb"]
 mssql = ["pymssql"]
+prophet = ["prophet"]
+all = [
+    "snowflake-sqlalchemy",
+    "azure-identity",
+    "azure-storage-blob",
+    "s3fs",
+    "psycopg2-binary",
+    "sqlalchemy-bigquery",
+    "oracledb",
+    "pymssql",
+    "prophet",
+]
 
 [build-system]
 requires = ["poetry-core"]

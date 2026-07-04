@@ -10,7 +10,13 @@ class OutlierDetector:
     def get_outliers_in_df(self, df: pd.DataFrame) -> pd.DataFrame:
         if len(df) < 2:
             return pd.DataFrame()
-        from prophet import Prophet
+        try:
+            from prophet import Prophet
+        except ImportError as e:
+            raise ImportError(
+                "Prophet-based outlier detection requires the 'prophet' extra: "
+                "pip install 'metahound[prophet]'"
+            ) from e
         m = Prophet()
         m.fit(df)
         pred = m.predict(df)
