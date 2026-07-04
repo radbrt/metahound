@@ -7,6 +7,7 @@ import os
 import jinja2
 from .setup import run_model_ddls
 from metahound.diff import diff_snapshots, snapshot_from_db_crawl, snapshot_from_file_crawl
+from metahound.filesets import evaluate_filesets, parse_filesets
 from metahound.connection_handlers.sftp_connection import SFTPFileSystem
 from metahound.connection_handlers.s3_connection import S3FileSystem
 from metahound.connection_handlers.az_connection import AZFileSystem
@@ -85,17 +86,21 @@ def _snapshot_and_diff(
     source_uri: str,
     previous: dict | None,
     snapshot: dict,
+    extra_changes: list | None = None,
 ) -> list:
     """Persist a snapshot and record changes against the previous one.
 
     The first scan of a source establishes the baseline: the snapshot is saved
-    but no change events are recorded (everything would be "added").
+    but no diff events are recorded (everything would be "added"). Extra
+    changes produced at scan time (fileset validation) are recorded even on
+    the first scan — they are findings about the scan itself, not diffs.
     """
     backend.save_snapshot(scan_id, source_uri, snapshot)
-    if previous is None:
-        return []
-    changes = diff_snapshots(previous, snapshot)
-    backend.record_changes(scan_id, source_uri, changes)
+    changes = [] if previous is None else diff_snapshots(previous, snapshot)
+    if extra_changes:
+        changes = changes + list(extra_changes)
+    if changes:
+        backend.record_changes(scan_id, source_uri, changes)
     return changes
 
 
@@ -105,8 +110,12 @@ def _scan_filesystem_source(
     filesystem,
     backend: GenericBackendHandler,
     get_schemas: bool,
+    filesets_config: list | None = None,
+    alert_unrecognized: bool = True,
 ) -> None:
     """Scan a filesystem source (sftp, s3, az) and persist results."""
+    filesets = parse_filesets(filesets_config)
+
     all_files = filesystem.get_files()
     highwater = backend.get_last_modified(server=source_name)
     new_files = [f['name'] for f in all_files if f['mtime'] > highwater]
@@ -115,14 +124,26 @@ def _scan_filesystem_source(
     last_modified = filesystem.get_last_modified()
 
     # Filesystem scans only see files above the highwater mark, so the new
-    # snapshot is the previous one plus what this scan found.
+    # snapshot is the previous one plus what this scan found. Fileset entries
+    # are not carried over: they are rebuilt from the current config each
+    # scan, so a fileset dropped from the YAML shows up as fileset_removed.
     source_uri = f"{protocol}://{source_name}/"
     previous = backend.get_latest_snapshot(source_uri)
-    snapshot = dict(previous or {})
+    snapshot = {
+        uri: obj for uri, obj in (previous or {}).items()
+        if not uri.startswith("fileset://")
+    }
     snapshot.update(snapshot_from_file_crawl(source_name, protocol, schemas))
 
+    extra_changes = []
+    if filesets:
+        fileset_entries, extra_changes = evaluate_filesets(
+            filesets, schemas, previous, source_name, protocol, alert_unrecognized,
+        )
+        snapshot.update(fileset_entries)
+
     scan_id = backend.register_scan(server=source_name, last_modified=last_modified)
-    _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot)
+    _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot, extra_changes)
 
 
 def _make_db_scanners(source: dict) -> list:
@@ -166,6 +187,19 @@ def _scan_database_source(source: dict, backend: GenericBackendHandler, no_stats
     _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot)
 
 
+def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBackendHandler) -> None:
+    """Extract filesystem-source options from the config and run the scan."""
+    _scan_filesystem_source(
+        source['name'],
+        protocol,
+        filesystem,
+        backend,
+        source.get("get_schemas", False),
+        filesets_config=source.get("filesets"),
+        alert_unrecognized=source.get("alert_unrecognized", True),
+    )
+
+
 def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -> None:
     logger.info(f"Scanning {source['type']} {source['name']}")
 
@@ -175,23 +209,20 @@ def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -
             _scan_database_source(source, backend, no_stats)
 
         case "sftp":
-            get_schemas = source.get("get_schemas", False)
             filesystem = SFTPFileSystem(
                 host=source['connection']['host'],
                 username=source['connection']['username'],
                 password=source['connection']['password'],
                 search_prefix=source['search_prefix'])
-            _scan_filesystem_source(source['name'], 'sftp', filesystem, backend, get_schemas)
+            _scan_filesystem(source, 'sftp', filesystem, backend)
 
         case "s3":
-            get_schemas = source.get("get_schemas", False)
             filesystem = S3FileSystem(search_prefix=source['bucket'], storage_options=source['connection'])
-            _scan_filesystem_source(source['name'], 's3', filesystem, backend, get_schemas)
+            _scan_filesystem(source, 's3', filesystem, backend)
 
         case "az":
-            get_schemas = source.get("get_schemas", False)
             filesystem = AZFileSystem(search_prefix=source['path'], storage_options=source['connection'])
-            _scan_filesystem_source(source['name'], 'az', filesystem, backend, get_schemas)
+            _scan_filesystem(source, 'az', filesystem, backend)
 
         case _:
             raise NotImplementedError("Source type not implemented")
@@ -377,7 +408,7 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
             return f"{detail.get('column')} ({detail.get('type')})"
         case "column_type_changed":
             return f"{detail.get('column')}: {detail.get('old_type')} -> {detail.get('new_type')}"
-        case "file_schema_changed":
+        case "file_schema_changed" | "fileset_schema_changed":
             old_cols = set(detail.get('old_columns', {}))
             new_cols = set(detail.get('new_columns', {}))
             parts = []
@@ -385,8 +416,13 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
                 parts.append(f"+{', +'.join(sorted(new_cols - old_cols))}")
             if old_cols - new_cols:
                 parts.append(f"-{', -'.join(sorted(old_cols - new_cols))}")
-            return "; ".join(parts) or "column types changed"
-        case "table_added" | "table_removed" | "file_added":
+            summary = "; ".join(parts) or "column types changed"
+            if detail.get('fileset'):
+                return f"fileset {detail['fileset']}: {summary}"
+            return summary
+        case "unrecognized_file":
+            return "matches no declared fileset"
+        case "table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed":
             n_columns = len(detail.get('columns', {}))
             return f"{n_columns} column(s)" if n_columns else ""
         case _:

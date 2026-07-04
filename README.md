@@ -184,6 +184,42 @@ Files discovered on SFTP, S3, and Azure sources are parsed for schema and statis
 - Parquet
 - JSONL
 
+### Filesets: logical tables over files
+
+Files that land on an SFTP server or object store are usually instances of a
+recurring feed: `orders_2024-06-01.csv` today, `orders_2024-06-02.csv` tomorrow.
+Declare these feeds as **filesets** and Metahound treats each one as a logical
+table with a stable schema:
+
+```yaml
+  - name: partner_sftp
+    type: sftp
+    search_prefix: /upload
+    get_schemas: true
+    connection:
+      host: sftp.partner.com
+      username: metahound
+      password: {{ SFTP_PASSWORD }}
+    filesets:
+      - name: orders
+        pattern: "orders_{date}.csv"
+      - name: customer_batches
+        regex: "customers_\\d+\\.csv"
+```
+
+- `pattern` is a glob (`*`, `?`) that can also contain the tokens `{date}`,
+  `{time}`, `{seq}` and `{uuid}`; `regex` is a full-match regular expression.
+  Use one or the other. Patterns without a `/` match the file's basename, so
+  they find the feed regardless of directory.
+- The first matched file's inferred schema becomes the fileset's **canonical
+  schema** (requires `get_schemas: true`). Every later match is validated
+  against it; a deviation is recorded as a breaking `file_schema_changed`
+  event — so `metahound changes --fail-on breaking` gates on it.
+- Any file matching **no** declared fileset is recorded as an
+  `unrecognized_file` event: a new kind of file appeared on the server. Set
+  `alert_unrecognized: false` on the source to opt out.
+- Removing a fileset from the YAML is itself recorded (`fileset_removed`).
+
 ### Keep secrets out of config
 
 Reference secrets from your `.env` file using Jinja2 double-brace notation:
@@ -223,9 +259,10 @@ metahound changes
 ```
 
 Each change is classified as **breaking** (column removed, column type changed,
-table removed, file schema changed) or **info** (table, column or file added).
-By default the command shows changes from the most recent scan of each source;
-use `--since <ISO timestamp>` to look further back.
+table removed, file or fileset schema changed) or **info** (table, column,
+file or fileset added; fileset removed; unrecognized file). By default the
+command shows changes from the most recent scan of each source; use
+`--since <ISO timestamp>` to look further back.
 
 To gate an ingest pipeline, run a scan followed by `changes --fail-on` in a
 pre-ingest task (Airflow, Dagster, cron, CI):
