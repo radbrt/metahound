@@ -7,3 +7,4 @@ _*.ipynb
 __pycache__/
 test/
 .DS_Store
+dist/

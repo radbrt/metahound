@@ -27,6 +27,23 @@ pip install metahound
 metahound init <name-of-project>
 ```
 
+Database drivers, cloud-storage libraries and the Prophet forecaster are optional extras — install
+only what you need:
+
+```sh
+pip install 'metahound[snowflake]'   # Snowflake sources
+pip install 'metahound[postgres]'    # PostgreSQL sources or a PostgreSQL backend
+pip install 'metahound[bigquery]'    # BigQuery sources
+pip install 'metahound[oracle]'      # Oracle sources
+pip install 'metahound[mssql]'       # SQL Server sources
+pip install 'metahound[s3]'          # S3 file sources
+pip install 'metahound[azure]'       # Azure Blob file sources
+pip install 'metahound[prophet]'     # Prophet-based anomaly detection (z-index works without it)
+pip install 'metahound[all]'         # everything
+```
+
+SQLite backends, SFTP sources and local files work with the base install.
+
 This creates a new folder with the base files needed to get started, including a `metahound.yaml` configuration file and a `.env` file for secrets.
 
 ### Set up the backend

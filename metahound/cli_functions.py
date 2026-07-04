@@ -29,12 +29,8 @@ def parse_spec() -> dict:
     de = dotenv_values(".env")
     jinja_parsed = jinja2.Template(spec_txt).render(de)
     if not os.getenv("METAHOUND_BACKEND_URI"):
-        if 'METAHOUND_BACKEND_URI' in de:
-            backend_uri = de['METAHOUND_BACKEND_URI'] or 'sqlite:///metahound.db'
-
-            os.environ["METAHOUND_BACKEND_URI"] = backend_uri
-        else:
-            raise Exception("METAHOUND_BACKEND_URI not set")
+        backend_uri = de.get('METAHOUND_BACKEND_URI') or 'sqlite:///metahound.db'
+        os.environ["METAHOUND_BACKEND_URI"] = backend_uri
     spec = safe_load(jinja_parsed)
 
     return spec
@@ -73,6 +69,14 @@ def init_fn(foldername: str) -> None:
         # Create file
         with open(full_path, 'w') as f:
             f.write(source_file_string)
+
+        env_path = os.path.join(pwd, foldername, '.env')
+        with open(env_path, 'w') as f:
+            f.write(
+                "# Secrets referenced from metahound.yaml via Jinja2 go here.\n"
+                "# Defaults to a local SQLite backend when unset:\n"
+                "# METAHOUND_BACKEND_URI=sqlite:///metahound.db\n"
+            )
 
 
 def _snapshot_and_diff(
