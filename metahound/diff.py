@@ -14,10 +14,11 @@ BREAKING_CHANGE_TYPES = {
     "column_removed",
     "column_type_changed",
     "file_schema_changed",
+    "fileset_schema_changed",
 }
 
 
-def _change(object_uri: str, change_type: str, detail: dict) -> dict:
+def make_change(object_uri: str, change_type: str, detail: dict) -> dict:
     severity = "breaking" if change_type in BREAKING_CHANGE_TYPES else "info"
     return {
         "object_uri": object_uri,
@@ -67,7 +68,9 @@ def diff_snapshots(old: dict, new: dict) -> list:
     Tables are compared column-by-column; removal of a table is a change.
     Files are immutable once seen, so a file URI reappearing with a different
     non-empty schema is reported as file_schema_changed, and file removals are
-    not reported (files routinely get archived off landing zones).
+    not reported (files routinely get archived off landing zones). Filesets
+    behave like files for schema comparison, but their removal (a fileset
+    dropped from the config) is reported.
     """
     changes = []
 
@@ -76,16 +79,16 @@ def diff_snapshots(old: dict, new: dict) -> list:
         new_columns = obj.get("columns", {})
 
         if uri not in old:
-            changes.append(_change(uri, f"{kind}_added", {"columns": new_columns}))
+            changes.append(make_change(uri, f"{kind}_added", {"columns": new_columns}))
             continue
 
         old_columns = old[uri].get("columns", {})
 
-        if kind == "file":
+        if kind in ("file", "fileset"):
             # Only flag when both sides actually have an inferred schema:
             # a scan with get_schemas off yields empty columns, not a change.
             if old_columns and new_columns and old_columns != new_columns:
-                changes.append(_change(uri, "file_schema_changed", {
+                changes.append(make_change(uri, f"{kind}_schema_changed", {
                     "old_columns": old_columns,
                     "new_columns": new_columns,
                 }))
@@ -93,12 +96,12 @@ def diff_snapshots(old: dict, new: dict) -> list:
 
         for column, col_type in new_columns.items():
             if column not in old_columns:
-                changes.append(_change(uri, "column_added", {
+                changes.append(make_change(uri, "column_added", {
                     "column": column,
                     "type": col_type,
                 }))
             elif old_columns[column] != col_type:
-                changes.append(_change(uri, "column_type_changed", {
+                changes.append(make_change(uri, "column_type_changed", {
                     "column": column,
                     "old_type": old_columns[column],
                     "new_type": col_type,
@@ -106,14 +109,15 @@ def diff_snapshots(old: dict, new: dict) -> list:
 
         for column, col_type in old_columns.items():
             if column not in new_columns:
-                changes.append(_change(uri, "column_removed", {
+                changes.append(make_change(uri, "column_removed", {
                     "column": column,
                     "type": col_type,
                 }))
 
     for uri, obj in old.items():
-        if uri not in new and obj.get("kind", "table") == "table":
-            changes.append(_change(uri, "table_removed", {
+        kind = obj.get("kind", "table")
+        if uri not in new and kind in ("table", "fileset"):
+            changes.append(make_change(uri, f"{kind}_removed", {
                 "columns": obj.get("columns", {}),
             }))
 
