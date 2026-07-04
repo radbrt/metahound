@@ -5,8 +5,8 @@ description = "Data observability CLI that scans upstream databases and file sto
 authors = ["Henning <henning.holgersen@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/radbrt/metadog"
-repository = "https://github.com/radbrt/metadog"
+homepage = "https://github.com/radbrt/metahound"
+repository = "https://github.com/radbrt/metahound"
 keywords = ["data-observability", "schema-drift", "data-quality", "data-engineering", "schema-change-detection"]
 classifiers = [
     "Development Status :: 4 - Beta",
