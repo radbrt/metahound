@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "metadog-server"
+name = "metahound-server"
 version = "0.1.0"
-description = "Metadog SaaS server"
+description = "Metahound SaaS server"
 authors = ["Henning <henning.holgersen@gmail.com>"]
 readme = "README.md"
 

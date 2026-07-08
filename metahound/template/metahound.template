@@ -1,0 +1,24 @@
+version: 1
+sources:
+    - name: postgres
+      type: postgres
+      connection:
+        host: localhost
+        username: postgres
+        password: postgres
+        database: postgres
+
+
+# Filesystem sources can declare filesets: recurring file feeds treated as
+# logical tables with a stable schema. See the README for details.
+#    - name: partner_sftp
+#      type: sftp
+#      search_prefix: /upload
+#      get_schemas: true
+#      connection:
+#        host: sftp.example.com
+#        username: metahound
+#        password: "{{ SFTP_PASSWORD }}"
+#      filesets:
+#        - name: orders
+#          pattern: "orders_{date}.csv"

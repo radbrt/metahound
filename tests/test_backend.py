@@ -38,3 +38,29 @@ def test_get_scan_payload_structure(backend_with_data):
     assert "metric_name" in metric
     assert "metric_value" in metric
     assert "ts" in metric
+
+    assert payload["changes"] == []
+
+
+def test_get_scan_payload_includes_changes(backend_with_data):
+    """Recorded change events appear in the push payload with parsed detail."""
+    scan_id = backend_with_data.register_scan("test_db", None)
+    backend_with_data.record_changes(scan_id, "db://test_db", [
+        {
+            "object_uri": "db://test_db/mydb/myschema/test_table",
+            "change_type": "column_removed",
+            "severity": "breaking",
+            "detail": {"column": "id", "type": "integer"},
+        },
+    ])
+
+    payload = backend_with_data.get_scan_payload()
+
+    assert len(payload["changes"]) == 1
+    change = payload["changes"][0]
+    assert change["source_uri"] == "db://test_db"
+    assert change["object_uri"] == "db://test_db/mydb/myschema/test_table"
+    assert change["change_type"] == "column_removed"
+    assert change["severity"] == "breaking"
+    assert change["detail"] == {"column": "id", "type": "integer"}
+    assert change["ts"]  # ISO timestamp string

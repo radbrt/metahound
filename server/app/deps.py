@@ -3,7 +3,7 @@ Authentication dependencies for FastAPI routes.
 
 Two auth paths:
   1. JWT (Auth0) — used by the web UI after Auth0 login
-  2. API token (bcrypt) — used by `metadog push` via Bearer header
+  2. API token (bcrypt) — used by `metahound push` via Bearer header
 """
 import datetime
 import secrets

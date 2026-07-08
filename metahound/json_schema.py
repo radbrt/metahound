@@ -1,6 +1,4 @@
 
-import csv
-import io
 
 
 # def get_row_iterator(iterable, sep=','):
@@ -139,6 +137,18 @@ def pick_datatype(type_count):
         to_return = 'number'
 
     return to_return
+
+
+def schema_types_to_string(spec):
+    """
+    Render a column's JSON-schema fragment as a compact type string.
+    Handles both the {'type': [...]} form and the {'anyOf': [...]} form
+    used for date-time columns.
+    """
+    if 'anyOf' in spec:
+        return 'date-time'
+    types = [t for t in spec.get('type', []) if t != 'null']
+    return '/'.join(types) if types else 'string'
 
 
 def generate_schema(samples):

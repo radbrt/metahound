@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, MetaData, Table, select, func, Numeric, Integer, String, distinct
+from sqlalchemy import MetaData, Table, select, func, Numeric, Integer, String, distinct
 
 def analyze_table(tbl_name, schema, engine):
 
@@ -15,14 +15,14 @@ def analyze_table(tbl_name, schema, engine):
             func.min(column).label(f"{column.name}__min"),
             func.avg(column).label(f"{column.name}__avg"),
             func.max(column).label(f"{column.name}__max"),
-            func.count(column).label(f"{column.name}__null_count")
+            (func.count() - func.count(column)).label(f"{column.name}__null_count")
         ]
 
     char_selects = []
     for column in char_columns:
         char_selects += [
             func.count(distinct(column)).label(f"{column.name}__unique_count"),
-            func.count(column).label(f"{column.name}__null_count")
+            (func.count() - func.count(column)).label(f"{column.name}__null_count")
         ]
 
     all_selects = numeric_selects + char_selects + [func.count()]

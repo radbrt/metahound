@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _format_anomaly_text(anomalies: list[Anomaly]) -> str:
-    lines = [f"Metadog detected {len(anomalies)} anomal{'y' if len(anomalies) == 1 else 'ies'}:\n"]
+    lines = [f"Metahound detected {len(anomalies)} anomal{'y' if len(anomalies) == 1 else 'ies'}:\n"]
     for a in anomalies:
         ts_str = a.anomaly_ts.isoformat() if a.anomaly_ts else "unknown time"
         lines.append(
@@ -54,7 +54,7 @@ async def send_alerts_async(org: Org, anomalies: list[Anomaly]) -> None:
         return
 
     text = _format_anomaly_text(anomalies)
-    subject = f"[Metadog] {len(anomalies)} anomal{'y' if len(anomalies) == 1 else 'ies'} detected"
+    subject = f"[Metahound] {len(anomalies)} anomal{'y' if len(anomalies) == 1 else 'ies'} detected"
 
     tasks = []
     if org.alert_email and settings.smtp_host:

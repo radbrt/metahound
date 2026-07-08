@@ -1,19 +1,25 @@
+import json
 import logging
-from sqlalchemy import create_engine, inspect, text
-import fsspec
-import csv
-from metadog.json_schema import sample_file, generate_schema
-from metadog.setup import Sources, Files, Fields, TableMetrics, Tables, ColumnMetrics, Scans
+from sqlalchemy import create_engine, text
+from metahound.json_schema import schema_types_to_string
+from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans, SchemaSnapshots, Changes
 from sqlalchemy.orm import sessionmaker
-import os
 import datetime
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
+def _cli_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("metahound")
+    except Exception:
+        return "unknown"
+
+
 class GenericBackendHandler():
-    def __init__(self, connection_uri: str = 'sqlite:///metadog.db'):
+    def __init__(self, connection_uri: str = 'sqlite:///metahound.db'):
         self.connection_uri = connection_uri
 
         self.connection = self._connect()
@@ -22,7 +28,7 @@ class GenericBackendHandler():
         engine = create_engine(self.connection_uri)
         return engine
 
-    def register_scan(self, server: str, last_modified) -> None:
+    def register_scan(self, server: str, last_modified) -> int:
         Session = sessionmaker(bind=self.connection)
         session = Session()
 
@@ -30,7 +36,9 @@ class GenericBackendHandler():
 
         session.add(scan)
         session.commit()
+        scan_id = scan.id
         session.close()
+        return scan_id
 
 
     def get_last_modified(self, server: str):
@@ -63,12 +71,13 @@ class GenericBackendHandler():
 
             file_entry = session.query(Files).filter_by(uri=file_uri).first()
             if not file_entry:
-                file_entry = Files(name=file['file'], uri=file_uri, filetype='csv', file_encoding='utf-8')
+                filetype = file['file'].rsplit('.', 1)[-1].lower() if '.' in file['file'] else 'unknown'
+                file_entry = Files(name=file['file'], uri=file_uri, filetype=filetype, file_encoding='utf-8')
 
             if file['properties']:
                 for column in file['properties'].keys():
                     column_uri = f"{file_uri}/{column}"
-                    column_types = '/'.join([f_type for f_type in file['properties'][column]['type'] if f_type != 'null'])
+                    column_types = schema_types_to_string(file['properties'][column])
                     column_entry = session.query(Fields).filter_by(uri=column_uri).first()
                     if not column_entry:
                         column_entry = Fields(name=column, type=column_types, uri=column_uri)
@@ -150,7 +159,7 @@ class GenericBackendHandler():
             def coerce_float(x):
                 try:
                     return float(x)
-                except:
+                except (TypeError, ValueError):
                     return None
 
             for metric in stat['stats'][0].keys():
@@ -168,13 +177,113 @@ class GenericBackendHandler():
         session.close()
 
 
+    def save_snapshot(self, scan_id: int, source_uri: str, snapshot: dict) -> None:
+        """Persist the full schema state of a source as observed by one scan."""
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        row = SchemaSnapshots(
+            scan_id=scan_id,
+            source_uri=source_uri,
+            ts=datetime.datetime.utcnow(),
+            snapshot=json.dumps(snapshot, sort_keys=True),
+        )
+        session.add(row)
+        session.commit()
+        session.close()
+
+
+    def get_latest_snapshot(self, source_uri: str) -> dict | None:
+        """Return the most recent snapshot for a source, or None if never scanned."""
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        row = (
+            session.query(SchemaSnapshots)
+            .filter_by(source_uri=source_uri)
+            .order_by(SchemaSnapshots.id.desc())
+            .first()
+        )
+        session.close()
+
+        if row is None:
+            return None
+        return json.loads(row.snapshot)
+
+
+    def record_changes(self, scan_id: int, source_uri: str, changes: list) -> None:
+        if not changes:
+            return
+
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        ts = datetime.datetime.utcnow()
+        for change in changes:
+            session.add(Changes(
+                scan_id=scan_id,
+                source_uri=source_uri,
+                object_uri=change["object_uri"],
+                change_type=change["change_type"],
+                severity=change["severity"],
+                detail=json.dumps(change.get("detail", {}), sort_keys=True),
+                ts=ts,
+            ))
+        session.commit()
+        session.close()
+
+
+    def get_changes(self, since: datetime.datetime | None = None) -> list:
+        """Return change events as dicts.
+
+        With since=None, returns only changes from the most recent scan of each
+        source; with a timestamp, returns all changes recorded at or after it.
+        """
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        query = session.query(Changes).order_by(Changes.ts, Changes.id)
+        if since is not None:
+            query = query.filter(Changes.ts >= since)
+        rows = query.all()
+
+        if since is None:
+            # Latest scan per source comes from snapshots (every scan writes
+            # one), so a clean scan correctly yields no changes here.
+            latest_scan = {}
+            for snap in session.query(SchemaSnapshots).all():
+                if snap.scan_id is not None:
+                    latest_scan[snap.source_uri] = max(
+                        latest_scan.get(snap.source_uri, 0), snap.scan_id
+                    )
+            rows = [r for r in rows if r.scan_id == latest_scan.get(r.source_uri)]
+
+        changes = [
+            {
+                "ts": row.ts,
+                "scan_id": row.scan_id,
+                "source_uri": row.source_uri,
+                "object_uri": row.object_uri,
+                "change_type": row.change_type,
+                "severity": row.severity,
+                "detail": json.loads(row.detail) if row.detail else {},
+            }
+            for row in rows
+        ]
+        session.close()
+        return changes
+
+
     def get_partition(self, partition: str) -> pd.DataFrame:
+        # Executed via SQLAlchemy rather than pandas.read_sql_query: pandas 2.x
+        # rejects SQLAlchemy 1.4 connectables, which this package still pins.
         query = text(
             "SELECT ts as ds, CAST(metric_value AS FLOAT) as y FROM table_metrics"
             " WHERE uri = :uri ORDER BY ds LIMIT 1000"
         )
-        df = pd.read_sql_query(query, self.connection, params={"uri": partition})
-        return df
+        with self.connection.connect() as conn:
+            rows = conn.execute(query, {"uri": partition}).fetchall()
+        return pd.DataFrame(rows, columns=["ds", "y"])
 
     def get_scan_payload(self) -> dict:
         Session = sessionmaker(bind=self.connection)
@@ -238,14 +347,31 @@ class GenericBackendHandler():
 
             sources_data.append(source_dict)
 
+        changes_data = [
+            {
+                "ts": row.ts.isoformat() if row.ts else None,
+                "source_uri": row.source_uri,
+                "object_uri": row.object_uri,
+                "change_type": row.change_type,
+                "severity": row.severity,
+                "detail": json.loads(row.detail) if row.detail else {},
+            }
+            for row in session.query(Changes).order_by(Changes.ts, Changes.id).all()
+        ]
+
         session.close()
-        return {"sources": sources_data, "cli_version": "2.0.0"}
+        return {
+            "sources": sources_data,
+            "changes": changes_data,
+            "cli_version": _cli_version(),
+        }
 
 
     def get_partitions(self) -> list:
         query = text("SELECT DISTINCT uri FROM table_metrics")
-        partitions = pd.read_sql_query(query, self.connection)
-        return list(partitions['uri'])
+        with self.connection.connect() as conn:
+            rows = conn.execute(query).fetchall()
+        return [row[0] for row in rows]
 
 
     def get_status_summary(self) -> dict:

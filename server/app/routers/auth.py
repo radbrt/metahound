@@ -64,7 +64,7 @@ def callback(request: Request, code: str, state: str, db: Session = Depends(get_
     except Exception:
         claims = {}
 
-    org_slug = claims.get("https://metadog.io/org_slug")
+    org_slug = claims.get("https://metahound.io/org_slug")
     if not org_slug:
         raise HTTPException(status_code=400, detail="No org_slug claim in token")
 

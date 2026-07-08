@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Anomalies — Metadog{% endblock %}
+{% block title %}Anomalies — Metahound{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-2xl font-bold text-gray-900">Anomalies</h1>
@@ -9,7 +9,7 @@
       hx-get="/anomalies?unacknowledged_only=true"
       hx-target="#anomaly-table-body"
       hx-swap="innerHTML"
-      class="rounded border-gray-300 text-indigo-600"
+      class="rounded border-gray-300 text-[#32a8e1]"
     />
     Open only
   </label>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Sources — Metadog{% endblock %}
+{% block title %}Sources — Metahound{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Sources</h1>
 
@@ -16,7 +16,7 @@
     <tbody class="bg-white divide-y divide-gray-200">
       {% for s in sources %}
       <tr class="hover:bg-gray-50">
-        <td class="px-6 py-4 text-sm font-medium text-indigo-600">
+        <td class="px-6 py-4 text-sm font-medium text-[#32a8e1]">
           <a href="/sources/{{ s.id }}">{{ s.name }}</a>
         </td>
         <td class="px-6 py-4 text-sm text-gray-500">{{ s.type or "—" }}</td>
@@ -25,7 +25,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-400">No sources found. Run <code>metadog push</code> to add sources.</td>
+        <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-400">No sources found. Run <code>metahound push</code> to add sources.</td>
       </tr>
       {% endfor %}
     </tbody>
