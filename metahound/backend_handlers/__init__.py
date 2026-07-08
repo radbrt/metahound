@@ -10,6 +10,14 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def _cli_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("metahound")
+    except Exception:
+        return "unknown"
+
+
 class GenericBackendHandler():
     def __init__(self, connection_uri: str = 'sqlite:///metahound.db'):
         self.connection_uri = connection_uri
@@ -339,8 +347,24 @@ class GenericBackendHandler():
 
             sources_data.append(source_dict)
 
+        changes_data = [
+            {
+                "ts": row.ts.isoformat() if row.ts else None,
+                "source_uri": row.source_uri,
+                "object_uri": row.object_uri,
+                "change_type": row.change_type,
+                "severity": row.severity,
+                "detail": json.loads(row.detail) if row.detail else {},
+            }
+            for row in session.query(Changes).order_by(Changes.ts, Changes.id).all()
+        ]
+
         session.close()
-        return {"sources": sources_data, "cli_version": "2.0.0"}
+        return {
+            "sources": sources_data,
+            "changes": changes_data,
+            "cli_version": _cli_version(),
+        }
 
 
     def get_partitions(self) -> list:

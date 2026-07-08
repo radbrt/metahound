@@ -301,10 +301,15 @@ def push_fn(api_url: str, api_token: str) -> None:
 
     payload = backend.get_scan_payload()
 
-    # Hash the sources content so the cloud can detect duplicate pushes.
-    # cli_version is excluded so a version upgrade alone doesn't bypass dedup.
+    # Hash the sources and changes content so the cloud can detect duplicate
+    # pushes. cli_version is excluded so a version upgrade alone doesn't
+    # bypass dedup.
     push_hash = hashlib.sha256(
-        json.dumps(payload["sources"], sort_keys=True, default=str).encode()
+        json.dumps(
+            {"sources": payload["sources"], "changes": payload.get("changes", [])},
+            sort_keys=True,
+            default=str,
+        ).encode()
     ).hexdigest()
     payload["push_hash"] = push_hash
 
