@@ -193,6 +193,23 @@ tracked; removals and type changes are **breaking**, additions are info —
 so an upstream API dropping a response field fails your pipeline gate
 before the data does.
 
+Specs lie — probe the real thing too. A `probe` list GETs configured
+endpoints, infers the payload's schema (a sample only, never a data pull),
+and tracks drift the same way:
+
+```yaml
+  - name: partner_api
+    type: openapi
+    spec_url: https://api.partner.com/openapi.json   # optional when probing
+    probe:
+      - name: orders_sample
+        url: https://api.partner.com/v1/orders?limit=10
+        headers: {}                                   # optional, merged over shared headers
+```
+
+A failed probe (endpoint down, non-JSON response) keeps the previous
+schema rather than reporting phantom changes.
+
 ### Supported file formats
 
 Files discovered on SFTP, S3, and Azure sources are parsed for schema and statistics:

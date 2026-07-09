@@ -126,3 +126,71 @@ def snapshot_from_openapi(source_name: str, spec: dict) -> dict:
         }
 
     return snapshot
+
+
+MAX_PROBE_SAMPLES = 100
+
+
+def probe_endpoint(url: str, headers: dict | None = None) -> dict:
+    """GET one endpoint and infer the payload's schema as {field: type}.
+
+    Only a sample is inspected (the first MAX_PROBE_SAMPLES records of an
+    array payload, or the lone object) — probing is a schema check, not a
+    data pull.
+    """
+    import requests
+
+    from metahound.json_schema import generate_schema, schema_types_to_string
+
+    response = requests.get(url, headers=headers or {}, timeout=30)
+    response.raise_for_status()
+    payload = response.json()
+
+    if isinstance(payload, list):
+        records = [r for r in payload[:MAX_PROBE_SAMPLES] if isinstance(r, dict)]
+    elif isinstance(payload, dict):
+        records = [payload]
+    else:
+        records = []
+
+    if not records:
+        return {}
+    return {
+        name: schema_types_to_string(spec)
+        for name, spec in generate_schema(records).items()
+    }
+
+
+def snapshot_from_probes(
+    source_name: str,
+    probes: list,
+    shared_headers: dict | None,
+    previous: dict | None,
+) -> dict:
+    """Probe configured endpoints into snapshot entries of kind "probe".
+
+    A failed probe (HTTP error, non-JSON payload) carries the previous
+    scan's entry forward, so a flaky endpoint doesn't masquerade as a
+    probe_removed + probe_added churn or a schema change.
+    """
+    entries = {}
+    for probe in probes or []:
+        name = probe.get("name")
+        url = probe.get("url")
+        if not name or not url:
+            raise ValueError("each probe requires 'name' and 'url'")
+
+        uri = f"api://{source_name}/probe/{name}"
+        headers = {**(shared_headers or {}), **(probe.get("headers") or {})}
+        try:
+            columns = probe_endpoint(url, headers=headers)
+        except Exception as exc:
+            logger.warning("Probe %s failed (%s) — keeping previous schema: %s",
+                           name, type(exc).__name__, exc)
+            prev_entry = (previous or {}).get(uri)
+            if prev_entry:
+                entries[uri] = prev_entry
+            continue
+
+        entries[uri] = {"kind": "probe", "columns": columns}
+    return entries

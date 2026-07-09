@@ -255,14 +255,26 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
 
 
 def _scan_openapi_source(source: dict, backend: GenericBackendHandler) -> None:
-    """Fetch an OpenAPI spec and diff it against the previous scan."""
-    from metahound.openapi import fetch_spec, snapshot_from_openapi
+    """Fetch an OpenAPI spec and/or probe sample endpoints; diff against the
+    previous scan."""
+    from metahound.openapi import fetch_spec, snapshot_from_openapi, snapshot_from_probes
 
-    spec = fetch_spec(source["spec_url"], headers=source.get("headers"))
-    snapshot = snapshot_from_openapi(source["name"], spec)
+    if not source.get("spec_url") and not source.get("probe"):
+        raise ValueError(
+            f"openapi source '{source.get('name', '?')}' needs 'spec_url' and/or 'probe'"
+        )
 
     source_uri = f"api://{source['name']}"
     previous = backend.get_latest_snapshot(source_uri)
+
+    snapshot = {}
+    if source.get("spec_url"):
+        spec = fetch_spec(source["spec_url"], headers=source.get("headers"))
+        snapshot.update(snapshot_from_openapi(source["name"], spec))
+    snapshot.update(snapshot_from_probes(
+        source["name"], source.get("probe"), source.get("headers"), previous,
+    ))
+
     scan_id = backend.register_scan(server=source["name"], last_modified=datetime.datetime.utcnow())
     _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot)
 
@@ -520,7 +532,8 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
                 f"name: {detail.get('name')}, pattern: \"{detail.get('pattern')}\""
             )
         case ("table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed"
-              | "endpoint_added" | "endpoint_removed" | "schema_added" | "schema_removed"):
+              | "endpoint_added" | "endpoint_removed" | "schema_added" | "schema_removed"
+              | "probe_added" | "probe_removed"):
             n_columns = len(detail.get('columns', {}))
             return f"{n_columns} column(s)" if n_columns else ""
         case _:
