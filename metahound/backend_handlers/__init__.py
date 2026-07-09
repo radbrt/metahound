@@ -71,8 +71,18 @@ class GenericBackendHandler():
 
             file_entry = session.query(Files).filter_by(uri=file_uri).first()
             if not file_entry:
-                filetype = file['file'].rsplit('.', 1)[-1].lower() if '.' in file['file'] else 'unknown'
-                file_entry = Files(name=file['file'], uri=file_uri, filetype=filetype, file_encoding='utf-8')
+                name_l = file['file'].lower()
+                # orders.csv.gz → "csv.gz", not "gz"
+                stem = name_l[:-3] if name_l.endswith('.gz') else name_l
+                filetype = stem.rsplit('.', 1)[-1] if '.' in stem else 'unknown'
+                if name_l.endswith('.gz'):
+                    filetype += '.gz'
+                file_entry = Files(
+                    name=file['file'],
+                    uri=file_uri,
+                    filetype=filetype,
+                    file_encoding=file.get('file_encoding', 'utf-8'),
+                )
 
             if file['properties']:
                 for column in file['properties'].keys():
