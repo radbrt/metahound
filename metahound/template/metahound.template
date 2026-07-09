@@ -35,3 +35,10 @@ sources:
 #      # File metrics: size/columns/rows per fileset member feed the
 #      # `metahound warnings` outlier detection. Disable with:
 #      # file_metrics: false
+
+# REST APIs: track OpenAPI spec drift (endpoints, params, response fields).
+#    - name: partner_api
+#      type: openapi
+#      spec_url: https://api.partner.com/openapi.json
+#      headers:
+#        Authorization: "Bearer {{ PARTNER_API_TOKEN }}"

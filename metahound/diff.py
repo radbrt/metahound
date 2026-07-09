@@ -16,6 +16,8 @@ BREAKING_CHANGE_TYPES = {
     "file_schema_changed",
     "fileset_schema_changed",
     "fileset_overdue",
+    "endpoint_removed",
+    "schema_removed",
 }
 
 
@@ -117,7 +119,9 @@ def diff_snapshots(old: dict, new: dict) -> list:
 
     for uri, obj in old.items():
         kind = obj.get("kind", "table")
-        if uri not in new and kind in ("table", "fileset"):
+        # Files are the only kind whose disappearance is routine (archived
+        # off landing zones); everything else vanishing is a change.
+        if uri not in new and kind != "file":
             changes.append(make_change(uri, f"{kind}_removed", {
                 "columns": obj.get("columns", {}),
             }))
