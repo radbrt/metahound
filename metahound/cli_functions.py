@@ -104,6 +104,21 @@ def _snapshot_and_diff(
     return changes
 
 
+def _normalize_mtime(mtime) -> datetime.datetime:
+    """Coerce a listing mtime to a naive UTC datetime.
+
+    Filesystem backends disagree: fsspec's SFTP yields timezone-aware
+    datetimes, S3 yields aware datetimes (stripped in its handler), and some
+    backends yield epoch numbers. Everything downstream (highwater marks,
+    arrival history) stores naive UTC.
+    """
+    if isinstance(mtime, (int, float)):
+        return datetime.datetime.utcfromtimestamp(mtime)
+    if getattr(mtime, "tzinfo", None) is not None:
+        return mtime.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return mtime
+
+
 def _scan_filesystem_source(
     source_name: str,
     protocol: str,
@@ -124,13 +139,17 @@ def _scan_filesystem_source(
     filesets = parse_filesets(filesets_config)
 
     # Materialize: some handlers (SFTP) yield a generator, and the listing is
-    # iterated again below for mtimes and sizes.
-    all_files = list(filesystem.get_files())
+    # iterated again below for mtimes and sizes. mtimes are normalized to
+    # naive UTC — fsspec's SFTP returns timezone-aware datetimes (sometimes
+    # epoch floats), while highwater marks from the backend are naive.
+    all_files = [
+        {**f, 'mtime': _normalize_mtime(f['mtime'])} for f in filesystem.get_files()
+    ]
     highwater = backend.get_last_modified(server=source_name)
     new_files = [f['name'] for f in all_files if f['mtime'] > highwater]
     schemas = [handle_file(file_name, filesystem, get_schemas) for file_name in new_files]
     backend.merge_file_crawl(domain=source_name, protocol=protocol, file_list=schemas)
-    last_modified = filesystem.get_last_modified()
+    last_modified = _normalize_mtime(filesystem.get_last_modified())
 
     # Filesystem scans only see files above the highwater mark, so the new
     # snapshot is the previous one plus what this scan found. Fileset entries

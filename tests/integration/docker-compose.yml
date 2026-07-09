@@ -1,0 +1,21 @@
+# Local harness for tests/integration/run.sh:
+#   docker compose -f tests/integration/docker-compose.yml up -d
+#   psql -h localhost -U metahound -d ci -f tests/integration/seed.sql   (password: hound)
+#   docker cp tests/integration/sftp_files/orders_2026-07-01.csv metahound-sftp:/home/hound/upload/
+#   bash tests/integration/run.sh
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: metahound
+      POSTGRES_PASSWORD: hound
+      POSTGRES_DB: ci
+    ports:
+      - "5432:5432"
+
+  sftp:
+    image: atmoz/sftp:latest
+    container_name: metahound-sftp
+    command: "hound:woof:1001::upload"
+    ports:
+      - "2222:22"
