@@ -288,10 +288,14 @@ def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -
             _scan_database_source(source, backend, no_stats)
 
         case "sftp":
+            connection = source['connection']
             filesystem = SFTPFileSystem(
-                host=source['connection']['host'],
-                username=source['connection']['username'],
-                password=source['connection']['password'],
+                host=connection['host'],
+                username=connection['username'],
+                password=connection.get('password'),
+                port=connection.get('port', 22),
+                key_path=connection.get('key_path'),
+                key_passphrase=connection.get('key_passphrase'),
                 search_prefix=source['search_prefix'])
             _scan_filesystem(source, 'sftp', filesystem, backend)
 
@@ -308,6 +312,24 @@ def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -
 
         case _:
             raise NotImplementedError("Source type not implemented")
+
+
+SECRET_CONFIG_KEYS = {"password", "key_passphrase", "token", "secret", "api_key",
+                      "account_key", "sas_token", "client_secret", "aws_secret_access_key"}
+
+
+def _redact_secrets(message: str, source: dict) -> str:
+    """Blank out any configured secret values that leak into an error message.
+
+    Driver exceptions (SQLAlchemy in particular) can embed the full DSN —
+    password included — in their text. Anything that came from a secret-ish
+    connection key is replaced before the message is logged or displayed.
+    """
+    connection = source.get("connection") or {}
+    for key, value in connection.items():
+        if key.lower() in SECRET_CONFIG_KEYS and isinstance(value, str) and value:
+            message = message.replace(value, "***")
+    return message
 
 
 def scan_fn(select: str | None, no_stats: bool) -> None:
@@ -335,11 +357,15 @@ def scan_fn(select: str | None, no_stats: bool) -> None:
         try:
             _scan_source(source, backend, no_stats)
         except Exception as exc:
-            logger.exception(f"Scan failed for source {source.get('name', '?')}")
-            failures.append((source.get('name', '?'), exc))
+            message = _redact_secrets(str(exc), source)
+            # Full traceback only at DEBUG — driver exceptions can embed
+            # credentials, so the default log line is the redacted message.
+            logger.debug("Scan failure traceback", exc_info=True)
+            logger.error(f"Scan failed for source {source.get('name', '?')}: {message}")
+            failures.append((source.get('name', '?'), message))
 
     if failures:
-        summary = ", ".join(f"{name} ({exc})" for name, exc in failures)
+        summary = ", ".join(f"{name} ({message})" for name, message in failures)
         raise click.ClickException(f"{len(failures)} source(s) failed to scan: {summary}")
 
 
