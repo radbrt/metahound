@@ -247,6 +247,16 @@ claims, so a model error can never hide or invent a file.
   provider (`mistral-small-latest` by default, EU-hosted API); the provider
   interface is pluggable (`METAHOUND_LLM_PROVIDER`).
 
+**Freshness monitoring** catches the failure mode profiling can't: a feed
+that *stops*. Metahound learns each fileset's arrival cadence from the mtime
+history of its matched files (median interval — no model, no tuning) and
+records a **breaking** `fileset_overdue` event when more than 2× the median
+has passed without a new file. The event repeats on every scan while the
+feed is missing, so `metahound changes --fail-on breaking` keeps gating
+until it recovers. Needs at least 3 distinct arrival times before judging a
+feed — young or irregular filesets stay silent. Tune with
+`freshness_factor: 3.0` or disable with `freshness: false` per source.
+
 ### Keep secrets out of config
 
 Reference secrets from your `.env` file using Jinja2 double-brace notation:

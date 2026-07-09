@@ -130,6 +130,20 @@ class Changes(Base):
     ts = Column(DateTime)
 
 
+class FileArrivals(Base):
+    """One row per file that matched a fileset: the fileset's arrival history.
+
+    Cadence monitoring learns each fileset's expected arrival interval from
+    these mtimes and flags filesets whose next file is overdue.
+    """
+    __tablename__ = 'file_arrivals'
+    id = Column(Integer, primary_key=True)
+    source_uri = Column(String)
+    fileset = Column(String)
+    file_name = Column(String)
+    mtime = Column(DateTime)
+
+
 def run_model_ddls():
     backend_uri = os.getenv("METAHOUND_BACKEND_URI")
 

@@ -15,6 +15,7 @@ BREAKING_CHANGE_TYPES = {
     "column_type_changed",
     "file_schema_changed",
     "fileset_schema_changed",
+    "fileset_overdue",
 }
 
 

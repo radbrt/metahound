@@ -2,7 +2,7 @@ import json
 import logging
 from sqlalchemy import create_engine, text
 from metahound.json_schema import schema_types_to_string
-from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans, SchemaSnapshots, Changes
+from metahound.setup import Sources, Files, Fields, TableMetrics, Tables, Scans, SchemaSnapshots, Changes, FileArrivals
 from sqlalchemy.orm import sessionmaker
 import datetime
 import pandas as pd
@@ -231,6 +231,60 @@ class GenericBackendHandler():
             ))
         session.commit()
         session.close()
+
+
+    def record_file_arrivals(self, source_uri: str, arrivals: list) -> None:
+        """Persist (fileset, file_name, mtime) arrival observations.
+
+        Re-observing a file updates its mtime rather than duplicating the row.
+        The table is created on demand so pre-2.6 backends pick it up without
+        re-running `metahound backend`.
+        """
+        if not arrivals:
+            return
+
+        FileArrivals.__table__.create(self.connection, checkfirst=True)
+
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        for fileset, file_name, mtime in arrivals:
+            row = (
+                session.query(FileArrivals)
+                .filter_by(source_uri=source_uri, fileset=fileset, file_name=file_name)
+                .first()
+            )
+            if row is None:
+                session.add(FileArrivals(
+                    source_uri=source_uri,
+                    fileset=fileset,
+                    file_name=file_name,
+                    mtime=mtime,
+                ))
+            else:
+                row.mtime = mtime
+        session.commit()
+        session.close()
+
+
+    def get_file_arrivals(self, source_uri: str) -> dict:
+        """Return {fileset: [mtime, ...]} sorted ascending, for one source."""
+        FileArrivals.__table__.create(self.connection, checkfirst=True)
+
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        arrivals: dict = {}
+        rows = (
+            session.query(FileArrivals)
+            .filter_by(source_uri=source_uri)
+            .order_by(FileArrivals.mtime, FileArrivals.id)
+            .all()
+        )
+        for row in rows:
+            arrivals.setdefault(row.fileset, []).append(row.mtime)
+        session.close()
+        return arrivals
 
 
     def get_changes(self, since: datetime.datetime | None = None) -> list:
