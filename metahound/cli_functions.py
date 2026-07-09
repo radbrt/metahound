@@ -254,6 +254,19 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
     )
 
 
+def _scan_openapi_source(source: dict, backend: GenericBackendHandler) -> None:
+    """Fetch an OpenAPI spec and diff it against the previous scan."""
+    from metahound.openapi import fetch_spec, snapshot_from_openapi
+
+    spec = fetch_spec(source["spec_url"], headers=source.get("headers"))
+    snapshot = snapshot_from_openapi(source["name"], spec)
+
+    source_uri = f"api://{source['name']}"
+    previous = backend.get_latest_snapshot(source_uri)
+    scan_id = backend.register_scan(server=source["name"], last_modified=datetime.datetime.utcnow())
+    _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot)
+
+
 def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -> None:
     logger.info(f"Scanning {source['type']} {source['name']}")
 
@@ -277,6 +290,9 @@ def _scan_source(source: dict, backend: GenericBackendHandler, no_stats: bool) -
         case "az":
             filesystem = AZFileSystem(search_prefix=source['path'], storage_options=source['connection'])
             _scan_filesystem(source, 'az', filesystem, backend)
+
+        case "openapi":
+            _scan_openapi_source(source, backend)
 
         case _:
             raise NotImplementedError("Source type not implemented")
@@ -503,7 +519,8 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
                 f"{detail.get('file_count')} files look like a fileset{via} — declare "
                 f"name: {detail.get('name')}, pattern: \"{detail.get('pattern')}\""
             )
-        case "table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed":
+        case ("table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed"
+              | "endpoint_added" | "endpoint_removed" | "schema_added" | "schema_removed"):
             n_columns = len(detail.get('columns', {}))
             return f"{n_columns} column(s)" if n_columns else ""
         case _:

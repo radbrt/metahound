@@ -129,6 +129,7 @@ sources:
 | `sftp` | Remote SFTP servers |
 | `s3` | AWS S3 (or S3-compatible) blob storage |
 | `az` | Azure Storage Accounts |
+| `openapi` | REST API described by an OpenAPI spec — spec drift detection |
 
 **BigQuery example:**
 
@@ -175,6 +176,22 @@ Oracle connects to a single service (identified by `service_name`) and enumerate
 `port` defaults to `1433`. An optional `driver` key can be set to `pyodbc` if you have ODBC drivers installed; the default is `pymssql`.
 
 See `metahound/connection_handlers/README.md` for full connection configuration details.
+
+**OpenAPI example:**
+
+```yaml
+  - name: partner_api
+    type: openapi
+    spec_url: https://api.partner.com/openapi.json   # JSON or YAML
+    headers:                                          # optional
+      Authorization: "Bearer {{ PARTNER_API_TOKEN }}"
+```
+
+Each scan fetches the spec and diffs it against the previous one. Endpoints
+(parameters, request-body and response fields) and component schemas are
+tracked; removals and type changes are **breaking**, additions are info —
+so an upstream API dropping a response field fails your pipeline gate
+before the data does.
 
 ### Supported file formats
 
