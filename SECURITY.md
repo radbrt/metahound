@@ -100,9 +100,10 @@ CREATE USER metahound FOR LOGIN metahound;
 ALTER ROLE db_datareader ADD MEMBER metahound;
 ```
 
-Heavy statistics (`COUNT(DISTINCT)` per string column) run against these
-grants; use `analyze: false` per source or `--no-stats` if even read load
-is a concern.
+Heavy statistics (`COUNT(DISTINCT)` per string column) are off by default
+and opt-in via `stats: {heavy: true}`; `stats: {sample_percent: 5}` caps
+cost on large tables via `TABLESAMPLE`. Use `analyze: false` per source or
+`--no-stats` if even the cheap aggregate pass is a concern.
 
 ## Metahound Cloud
 

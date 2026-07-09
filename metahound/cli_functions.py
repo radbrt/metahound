@@ -224,7 +224,7 @@ def _scan_database_source(source: dict, backend: GenericBackendHandler, no_stats
 
     snapshot = {}
     for db_label, scanner in _make_db_scanners(source):
-        catalog, stats = scanner.profile_db(db_label, do_analyze)
+        catalog, stats = scanner.profile_db(db_label, do_analyze, stats_config=source.get("stats"))
         backend.merge_database_crawl(domain=source['name'], db_json=catalog)
         if do_analyze:
             backend.merge_database_stats(domain=source['name'], db_json=stats)
