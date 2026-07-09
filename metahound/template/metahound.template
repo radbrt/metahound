@@ -22,3 +22,6 @@ sources:
 #      filesets:
 #        - name: orders
 #          pattern: "orders_{date}.csv"
+#      # Unmatched files are clustered into suggested filesets, reported as
+#      # fileset_suggested events by `metahound changes`. Opt out with:
+#      # infer_filesets: false
