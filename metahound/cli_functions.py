@@ -319,20 +319,30 @@ def handle_file(file_name: str, filesystem, get_schemas: bool) -> dict:
 
     file_stream = filesystem.get_file(file_name)
 
-    if file_name.endswith('.csv'):
-        csv_handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
-        return csv_handler.get_file_metadata()
+    # Compressed files are unwrapped and dispatched on the inner extension,
+    # so orders.csv.gz goes through the CSV handler.
+    dispatch_name = file_name.lower()
+    if dispatch_name.endswith('.gz'):
+        import gzip
+        file_stream = gzip.GzipFile(fileobj=file_stream)
+        dispatch_name = dispatch_name[:-3]
 
-    elif file_name.endswith('.parquet'):
-        pq_handler = ParquetHandler(file_stream, file_name, get_schema=get_schemas)
-        return pq_handler.get_file_metadata()
-
-    elif file_name.endswith('.jsonl'):
-        jsonl_handler = JSONLHandler(file_stream, file_name, get_schema=get_schemas)
-        return jsonl_handler.get_file_metadata()
-
+    if dispatch_name.endswith('.csv'):
+        handler = CSVHandler(file_stream, file_name, get_schema=get_schemas)
+    elif dispatch_name.endswith('.parquet'):
+        handler = ParquetHandler(file_stream, file_name, get_schema=get_schemas)
+    elif dispatch_name.endswith('.jsonl'):
+        handler = JSONLHandler(file_stream, file_name, get_schema=get_schemas)
+    elif dispatch_name.endswith('.json'):
+        from metahound.file_handlers.json_handler import JSONHandler
+        handler = JSONHandler(file_stream, file_name, get_schema=get_schemas)
+    elif dispatch_name.endswith('.xlsx'):
+        from metahound.file_handlers.excel_handler import ExcelHandler
+        handler = ExcelHandler(file_stream, file_name, get_schema=get_schemas)
     else:
         return {"file": file_name, "properties": {}}
+
+    return handler.get_file_metadata()
 
 
 def push_fn(api_url: str, api_token: str) -> None:

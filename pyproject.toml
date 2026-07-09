@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metahound"
-version = "2.7.0"
+version = "2.8.0"
 description = "Data observability CLI that scans upstream databases and file stores, detects schema changes, and fails your pipeline before bad data lands"
 authors = ["Henning <henning.holgersen@gmail.com>"]
 license = "Apache-2.0"
@@ -40,6 +40,7 @@ s3fs = { version = ">=2023.6", optional = true }
 sqlalchemy-bigquery = { version = ">=1.9", optional = true, python = ">=3.10,<3.15" }
 oracledb = { version = ">=2.0", optional = true }
 pymssql = { version = ">=2.2", optional = true }
+openpyxl = { version = ">=3.1", optional = true }
 
 [tool.poetry.extras]
 snowflake = ["snowflake-sqlalchemy"]
@@ -50,6 +51,7 @@ bigquery = ["sqlalchemy-bigquery"]
 oracle = ["oracledb"]
 mssql = ["pymssql"]
 prophet = ["prophet"]
+excel = ["openpyxl"]
 all = [
     "snowflake-sqlalchemy",
     "azure-identity",
@@ -60,6 +62,7 @@ all = [
     "oracledb",
     "pymssql",
     "prophet",
+    "openpyxl",
 ]
 
 [build-system]

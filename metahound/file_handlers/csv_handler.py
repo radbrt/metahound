@@ -1,5 +1,6 @@
 import csv
 from metahound.json_schema import generate_schema
+from metahound.file_handlers.encoding import detect_stream_encoding
 import io
 
 class CSVHandler():
@@ -14,7 +15,8 @@ class CSVHandler():
         the delimiter will be inferred
     """
     def __init__(self, file_stream, file_name, get_schema=False, delimiter=None):
-        self.filestream = io.TextIOWrapper(file_stream, encoding='utf-8')
+        self.encoding = detect_stream_encoding(file_stream)
+        self.filestream = io.TextIOWrapper(file_stream, encoding=self.encoding)
         self.get_schema = get_schema
         self.delimiter = delimiter or self.get_delimiter()
         self.accepted_file_types = ['csv']
@@ -23,14 +25,14 @@ class CSVHandler():
 
 
     def get_file_metadata(self):
-        if self.has_header() and self.get_schema:   
+        if self.has_header() and self.get_schema:
 
             t, samples = self.sample_file(sample_rate=100, max_records=1000)
             schema = generate_schema(samples)
         else:
             schema = {}
 
-        return {'file': self.file_name, 'properties': schema}
+        return {'file': self.file_name, 'properties': schema, 'file_encoding': self.encoding}
 
 
     def has_header(self):

@@ -183,6 +183,13 @@ Files discovered on SFTP, S3, and Azure sources are parsed for schema and statis
 - CSV
 - Parquet
 - JSONL
+- JSON (single document — array of objects or one object)
+- Excel `.xlsx` (requires the `excel` extra: `pip install 'metahound[excel]'`)
+- Gzip-compressed variants of the text formats (`.csv.gz`, `.jsonl.gz`, `.json.gz`)
+
+Text formats don't have to be UTF-8: the encoding is detected per file
+(BOMs, UTF-8, Windows-1252/latin-1, and statistical detection beyond that)
+and recorded alongside the schema.
 
 ### Filesets: logical tables over files
 
