@@ -113,6 +113,7 @@ def _scan_filesystem_source(
     filesets_config: list | None = None,
     alert_unrecognized: bool = True,
     infer_filesets: bool = True,
+    llm_discovery: bool = False,
 ) -> None:
     """Scan a filesystem source (sftp, s3, az) and persist results."""
     filesets = parse_filesets(filesets_config)
@@ -137,13 +138,19 @@ def _scan_filesystem_source(
     snapshot.update(snapshot_from_file_crawl(source_name, protocol, schemas))
 
     extra_changes = []
-    if filesets or infer_filesets:
+    if filesets or infer_filesets or llm_discovery:
+        llm_provider = None
+        if llm_discovery:
+            from metahound.llm import get_provider
+            llm_provider = get_provider()
+
         # Without declared filesets there is nothing for a file to be
         # "unrecognized" against, so only suggestions are emitted then.
         fileset_entries, extra_changes = evaluate_filesets(
             filesets, schemas, previous, source_name, protocol,
             alert_unrecognized=alert_unrecognized and bool(filesets),
             infer=infer_filesets,
+            llm_provider=llm_provider,
         )
         snapshot.update(fileset_entries)
 
@@ -203,6 +210,7 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
         filesets_config=source.get("filesets"),
         alert_unrecognized=source.get("alert_unrecognized", True),
         infer_filesets=source.get("infer_filesets", True),
+        llm_discovery=source.get("llm_discovery", False),
     )
 
 
@@ -434,8 +442,9 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
         case "unrecognized_file":
             return "matches no declared fileset"
         case "fileset_suggested":
+            via = " (LLM)" if detail.get("via") == "llm" else ""
             return (
-                f"{detail.get('file_count')} files look like a fileset — declare "
+                f"{detail.get('file_count')} files look like a fileset{via} — declare "
                 f"name: {detail.get('name')}, pattern: \"{detail.get('pattern')}\""
             )
         case "table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed":

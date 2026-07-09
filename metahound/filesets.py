@@ -97,6 +97,7 @@ def evaluate_filesets(
     protocol: str,
     alert_unrecognized: bool = True,
     infer: bool = False,
+    llm_provider=None,
 ) -> tuple[dict, list]:
     """Match crawled files against declared filesets.
 
@@ -109,7 +110,9 @@ def evaluate_filesets(
 
     With infer=True, unmatched files are first clustered into suggested
     filesets (fileset_suggested events); only files no suggestion covers fall
-    through to unrecognized_file.
+    through to unrecognized_file. With an llm_provider, files heuristic
+    inference can't cluster get one more pass through LLM discovery before
+    falling through.
     """
     source_uri = f"{protocol}://{source_name}/"
 
@@ -147,11 +150,22 @@ def evaluate_filesets(
                 "new_columns": columns,
             }))
 
+    declared_names = {f.name for f in filesets}
+
     if infer and unmatched:
         from metahound.fileset_inference import infer_filesets
 
         suggestions, unmatched = infer_filesets(
-            unmatched, source_name, declared_names={f.name for f in filesets},
+            unmatched, source_name, declared_names=declared_names,
+        )
+        events.extend(suggestions)
+        declared_names |= {e["detail"]["name"] for e in suggestions}
+
+    if llm_provider is not None and unmatched:
+        from metahound.llm_discovery import suggest_filesets_llm
+
+        suggestions, unmatched = suggest_filesets_llm(
+            unmatched, source_name, llm_provider, declared_names=declared_names,
         )
         events.extend(suggestions)
 

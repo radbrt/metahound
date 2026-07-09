@@ -25,3 +25,6 @@ sources:
 #      # Unmatched files are clustered into suggested filesets, reported as
 #      # fileset_suggested events by `metahound changes`. Opt out with:
 #      # infer_filesets: false
+#      # Optional: let an LLM (Mistral) suggest filesets heuristics miss.
+#      # Requires MISTRAL_API_KEY in .env; sends only filenames + column names:
+#      # llm_discovery: true

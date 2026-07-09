@@ -230,6 +230,23 @@ Files that don't cluster, or whose schema disagrees with their cluster, stay
 individual `unrecognized_file` warnings. On by default; set
 `infer_filesets: false` on the source to opt out.
 
+**LLM-assisted discovery** (optional, opt-in) handles what the heuristics
+can't — volatile filename parts that aren't dates or sequence numbers
+(`sales_monday.csv`, `sales_tuesday.csv`), unusual naming conventions,
+human-readable feed names. Set `llm_discovery: true` on a source and put
+`MISTRAL_API_KEY` in your `.env`; files heuristic inference leaves over get
+one more pass through the model before falling through to
+`unrecognized_file`. Suggestions are marked `via: llm` and validated like any
+other: every proposed pattern must compile and actually match the files it
+claims, so a model error can never hide or invent a file.
+
+- **Privacy**: the prompt contains only filenames and inferred column
+  names/types — never file contents, credentials, or sample rows.
+- **No hard dependency**: the CLI works fully without an LLM; if the key is
+  missing the pass is skipped with a warning. Mistral is the first-class
+  provider (`mistral-small-latest` by default, EU-hosted API); the provider
+  interface is pluggable (`METAHOUND_LLM_PROVIDER`).
+
 ### Keep secrets out of config
 
 Reference secrets from your `.env` file using Jinja2 double-brace notation:
