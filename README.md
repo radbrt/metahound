@@ -195,6 +195,26 @@ See [SECURITY.md](SECURITY.md) for least-privilege database grants per
 source type, what Metahound reads and stores, and how credentials are
 kept out of logs.
 
+**Statistics cost control** — Metahound is a guest on your production
+databases and behaves like one. By default each table gets a single cheap
+aggregate pass (row count, null counts, numeric min/avg/max).
+`COUNT(DISTINCT)` per string column is opt-in, and sampling caps the cost
+on big tables:
+
+```yaml
+  - name: prod_db
+    type: database
+    analyze: true          # false = schema only, no stats at all
+    stats:
+      heavy: true          # opt in to COUNT(DISTINCT) on string columns
+      sample_percent: 5    # TABLESAMPLE where the database supports it
+```
+
+Sampled counts are scaled back to table size so time series stay
+comparable; unique counts stay as observed on the sample.
+`sample_percent` uses `TABLESAMPLE`, supported by PostgreSQL, SQL Server,
+Snowflake, Oracle and BigQuery.
+
 **OpenAPI example:**
 
 ```yaml

@@ -7,6 +7,12 @@ sources:
         username: postgres
         password: postgres
         database: postgres
+      # Stats cost control (all optional): analyze: false skips stats
+      # entirely; heavy opts in to COUNT(DISTINCT) per string column;
+      # sample_percent uses TABLESAMPLE on big tables.
+      # stats:
+      #   heavy: true
+      #   sample_percent: 5
 
 
 # Filesystem sources can declare filesets: recurring file feeds treated as
