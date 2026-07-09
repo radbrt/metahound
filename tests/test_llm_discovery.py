@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from metahound.filesets import evaluate_filesets
 from metahound.llm import LLMProvider, MistralProvider, get_provider
-from metahound.llm_discovery import _files_prompt, suggest_filesets_llm
+from metahound.llm_discovery import suggest_filesets_llm
 
 
 def _file(name, columns=None):

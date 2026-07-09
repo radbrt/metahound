@@ -14,7 +14,6 @@ must reach the same minimum size as heuristic inference. Anything that fails
 validation silently degrades to the unrecognized-file path — a hallucinated
 pattern can never hide a file or invent one.
 """
-import json
 import logging
 
 from metahound.diff import make_change
