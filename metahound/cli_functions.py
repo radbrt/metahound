@@ -114,8 +114,12 @@ def _scan_filesystem_source(
     alert_unrecognized: bool = True,
     infer_filesets: bool = True,
     llm_discovery: bool = False,
+    freshness: bool = True,
+    freshness_factor: float = 2.0,
 ) -> None:
     """Scan a filesystem source (sftp, s3, az) and persist results."""
+    from metahound.cadence import evaluate_cadence
+
     filesets = parse_filesets(filesets_config)
 
     all_files = filesystem.get_files()
@@ -153,6 +157,21 @@ def _scan_filesystem_source(
             llm_provider=llm_provider,
         )
         snapshot.update(fileset_entries)
+
+    if filesets and freshness:
+        mtimes = {f['name']: f['mtime'] for f in all_files}
+        arrivals = []
+        for file_name in new_files:
+            matched = next((f for f in filesets if f.matches(file_name)), None)
+            if matched is not None:
+                arrivals.append((matched.name, file_name, mtimes[file_name]))
+        backend.record_file_arrivals(source_uri, arrivals)
+
+        extra_changes = extra_changes + evaluate_cadence(
+            backend.get_file_arrivals(source_uri),
+            source_name,
+            overdue_factor=freshness_factor,
+        )
 
     scan_id = backend.register_scan(server=source_name, last_modified=last_modified)
     _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot, extra_changes)
@@ -211,6 +230,8 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
         alert_unrecognized=source.get("alert_unrecognized", True),
         infer_filesets=source.get("infer_filesets", True),
         llm_discovery=source.get("llm_discovery", False),
+        freshness=source.get("freshness", True),
+        freshness_factor=source.get("freshness_factor", 2.0),
     )
 
 
@@ -441,6 +462,12 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
             return summary
         case "unrecognized_file":
             return "matches no declared fileset"
+        case "fileset_overdue":
+            hours = detail.get("median_interval_seconds", 0) / 3600
+            return (
+                f"no file since {detail.get('last_seen', '?')[:16]} — expected a new one "
+                f"by {detail.get('expected_by', '?')[:16]} (arrives ~every {hours:.1f}h)"
+            )
         case "fileset_suggested":
             via = " (LLM)" if detail.get("via") == "llm" else ""
             return (

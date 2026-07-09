@@ -28,3 +28,7 @@ sources:
 #      # Optional: let an LLM (Mistral) suggest filesets heuristics miss.
 #      # Requires MISTRAL_API_KEY in .env; sends only filenames + column names:
 #      # llm_discovery: true
+#      # Freshness: breaking fileset_overdue event when a fileset's next file
+#      # is >2x its median arrival interval late. Tune or disable with:
+#      # freshness_factor: 3.0
+#      # freshness: false
