@@ -28,3 +28,38 @@ jobs:
           cache: pip
       - run: pip install -e . pytest
       - run: pytest tests/ -q
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: metahound
+          POSTGRES_PASSWORD: hound
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U metahound -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e '.[postgres]'
+      # atmoz/sftp needs a command argument, which GH service containers
+      # can't pass — run it directly instead
+      - name: Start SFTP server
+        run: |
+          docker run -d --name metahound-sftp -p 2222:22 atmoz/sftp:latest hound:woof:1001::upload
+          sleep 3
+          docker cp tests/integration/sftp_files/orders_2026-07-01.csv metahound-sftp:/home/hound/upload/
+      - name: Seed Postgres
+        run: PGPASSWORD=hound psql -h localhost -U metahound -d ci -f tests/integration/seed.sql
+      - name: Run integration scenario
+        run: bash tests/integration/run.sh
