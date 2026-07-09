@@ -112,6 +112,7 @@ def _scan_filesystem_source(
     get_schemas: bool,
     filesets_config: list | None = None,
     alert_unrecognized: bool = True,
+    infer_filesets: bool = True,
 ) -> None:
     """Scan a filesystem source (sftp, s3, az) and persist results."""
     filesets = parse_filesets(filesets_config)
@@ -136,9 +137,13 @@ def _scan_filesystem_source(
     snapshot.update(snapshot_from_file_crawl(source_name, protocol, schemas))
 
     extra_changes = []
-    if filesets:
+    if filesets or infer_filesets:
+        # Without declared filesets there is nothing for a file to be
+        # "unrecognized" against, so only suggestions are emitted then.
         fileset_entries, extra_changes = evaluate_filesets(
-            filesets, schemas, previous, source_name, protocol, alert_unrecognized,
+            filesets, schemas, previous, source_name, protocol,
+            alert_unrecognized=alert_unrecognized and bool(filesets),
+            infer=infer_filesets,
         )
         snapshot.update(fileset_entries)
 
@@ -197,6 +202,7 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
         source.get("get_schemas", False),
         filesets_config=source.get("filesets"),
         alert_unrecognized=source.get("alert_unrecognized", True),
+        infer_filesets=source.get("infer_filesets", True),
     )
 
 
@@ -427,6 +433,11 @@ def _format_change_detail(change_type: str, detail: dict) -> str:
             return summary
         case "unrecognized_file":
             return "matches no declared fileset"
+        case "fileset_suggested":
+            return (
+                f"{detail.get('file_count')} files look like a fileset — declare "
+                f"name: {detail.get('name')}, pattern: \"{detail.get('pattern')}\""
+            )
         case "table_added" | "table_removed" | "file_added" | "fileset_added" | "fileset_removed":
             n_columns = len(detail.get('columns', {}))
             return f"{n_columns} column(s)" if n_columns else ""

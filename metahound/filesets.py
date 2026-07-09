@@ -96,6 +96,7 @@ def evaluate_filesets(
     source_name: str,
     protocol: str,
     alert_unrecognized: bool = True,
+    infer: bool = False,
 ) -> tuple[dict, list]:
     """Match crawled files against declared filesets.
 
@@ -105,6 +106,10 @@ def evaluate_filesets(
     inferred schema (get_schemas off, or unhandled formats) still count for
     recognition but are not schema-validated. The first file in a fileset
     lands silently — its schema becomes the canonical baseline.
+
+    With infer=True, unmatched files are first clustered into suggested
+    filesets (fileset_suggested events); only files no suggestion covers fall
+    through to unrecognized_file.
     """
     source_uri = f"{protocol}://{source_name}/"
 
@@ -114,6 +119,7 @@ def evaluate_filesets(
         canonical[fileset.name] = dict(prev_entry.get("columns") or {})
 
     events = []
+    unmatched = []
     for file in file_list:
         file_name = file["file"]
         columns = {}
@@ -127,11 +133,7 @@ def evaluate_filesets(
         file_object_uri = f"{source_uri}/{file_name}"
 
         if fileset is None:
-            if alert_unrecognized:
-                events.append(make_change(file_object_uri, "unrecognized_file", {
-                    "file": file_name,
-                    "declared_filesets": [f.name for f in filesets],
-                }))
+            unmatched.append(file)
             continue
 
         if not columns:
@@ -143,6 +145,21 @@ def evaluate_filesets(
                 "fileset": fileset.name,
                 "old_columns": canonical[fileset.name],
                 "new_columns": columns,
+            }))
+
+    if infer and unmatched:
+        from metahound.fileset_inference import infer_filesets
+
+        suggestions, unmatched = infer_filesets(
+            unmatched, source_name, declared_names={f.name for f in filesets},
+        )
+        events.extend(suggestions)
+
+    if alert_unrecognized:
+        for file in unmatched:
+            events.append(make_change(f"{source_uri}/{file['file']}", "unrecognized_file", {
+                "file": file["file"],
+                "declared_filesets": [f.name for f in filesets],
             }))
 
     snapshot_entries = {

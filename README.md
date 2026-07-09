@@ -220,6 +220,16 @@ table with a stable schema:
   `alert_unrecognized: false` on the source to opt out.
 - Removing a fileset from the YAML is itself recorded (`fileset_removed`).
 
+**Fileset inference** turns unmatched files into suggestions. Filenames are
+normalized into templates (`orders_2024-06-01.csv` → `orders_{date}.csv`),
+files sharing a template are clustered, and membership is confirmed by schema
+fingerprint. Each cluster of two or more files is reported as a
+`fileset_suggested` event whose detail contains a ready-to-paste declaration
+(name, pattern, columns) — nothing is created until you add it to the YAML.
+Files that don't cluster, or whose schema disagrees with their cluster, stay
+individual `unrecognized_file` warnings. On by default; set
+`infer_filesets: false` on the source to opt out.
+
 ### Keep secrets out of config
 
 Reference secrets from your `.env` file using Jinja2 double-brace notation:
