@@ -247,6 +247,14 @@ claims, so a model error can never hide or invent a file.
   provider (`mistral-small-latest` by default, EU-hosted API); the provider
   interface is pluggable (`METAHOUND_LLM_PROVIDER`).
 
+**File metrics** turn each fileset into a monitored time series: every
+matched file contributes its size, column count, and — for Parquet, where
+it's free — exact row count, timestamped by the file's mtime. The series
+flow through the same outlier detection as table metrics, so
+`metahound warnings` flags a half-sized orders file the same way it flags a
+row-count anomaly in a database table. Disable per source with
+`file_metrics: false`.
+
 **Freshness monitoring** catches the failure mode profiling can't: a feed
 that *stops*. Metahound learns each fileset's arrival cadence from the mtime
 history of its matched files (median interval — no model, no tuning) and

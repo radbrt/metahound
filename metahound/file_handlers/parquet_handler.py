@@ -21,7 +21,8 @@ class ParquetHandler():
         """
         Get the metadata for the file
         Returns:
-            dict: Dictionary containing the file name and the schema
+            dict: Dictionary containing the file name, the schema, and the
+            exact row count (free from parquet metadata — no data is read)
         """
         schema = {}
         if self.get_schema:
@@ -29,7 +30,9 @@ class ParquetHandler():
                 col = self.parquet_file.schema.column(i)
                 schema[col.name] = { 'type': [str(col.logical_type)] }
 
-            return {'file': self.file_name, 'properties': schema}
-
-        return {'file': self.file_name, 'properties': schema}
+        return {
+            'file': self.file_name,
+            'properties': schema,
+            'num_rows': self.parquet_file.metadata.num_rows,
+        }
 

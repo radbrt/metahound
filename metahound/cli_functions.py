@@ -116,13 +116,16 @@ def _scan_filesystem_source(
     llm_discovery: bool = False,
     freshness: bool = True,
     freshness_factor: float = 2.0,
+    file_metrics: bool = True,
 ) -> None:
     """Scan a filesystem source (sftp, s3, az) and persist results."""
     from metahound.cadence import evaluate_cadence
 
     filesets = parse_filesets(filesets_config)
 
-    all_files = filesystem.get_files()
+    # Materialize: some handlers (SFTP) yield a generator, and the listing is
+    # iterated again below for mtimes and sizes.
+    all_files = list(filesystem.get_files())
     highwater = backend.get_last_modified(server=source_name)
     new_files = [f['name'] for f in all_files if f['mtime'] > highwater]
     schemas = [handle_file(file_name, filesystem, get_schemas) for file_name in new_files]
@@ -158,20 +161,35 @@ def _scan_filesystem_source(
         )
         snapshot.update(fileset_entries)
 
-    if filesets and freshness:
-        mtimes = {f['name']: f['mtime'] for f in all_files}
+    if filesets and (freshness or file_metrics):
+        listing = {f['name']: f for f in all_files}
+        schema_by_file = {s['file']: s for s in schemas}
+
         arrivals = []
+        metrics = []
         for file_name in new_files:
             matched = next((f for f in filesets if f.matches(file_name)), None)
-            if matched is not None:
-                arrivals.append((matched.name, file_name, mtimes[file_name]))
-        backend.record_file_arrivals(source_uri, arrivals)
+            if matched is None:
+                continue
+            mtime = listing[file_name]['mtime']
+            arrivals.append((matched.name, file_name, mtime))
 
-        extra_changes = extra_changes + evaluate_cadence(
-            backend.get_file_arrivals(source_uri),
-            source_name,
-            overdue_factor=freshness_factor,
-        )
+            file_schema = schema_by_file.get(file_name, {})
+            metrics.append((matched.name, "file_size", listing[file_name].get('size'), mtime))
+            if file_schema.get('properties'):
+                metrics.append((matched.name, "column_count", len(file_schema['properties']), mtime))
+            if file_schema.get('num_rows') is not None:
+                metrics.append((matched.name, "row_count", file_schema['num_rows'], mtime))
+
+        if freshness:
+            backend.record_file_arrivals(source_uri, arrivals)
+            extra_changes = extra_changes + evaluate_cadence(
+                backend.get_file_arrivals(source_uri),
+                source_name,
+                overdue_factor=freshness_factor,
+            )
+        if file_metrics:
+            backend.merge_fileset_metrics(source_name, metrics)
 
     scan_id = backend.register_scan(server=source_name, last_modified=last_modified)
     _snapshot_and_diff(backend, scan_id, source_uri, previous, snapshot, extra_changes)
@@ -232,6 +250,7 @@ def _scan_filesystem(source: dict, protocol: str, filesystem, backend: GenericBa
         llm_discovery=source.get("llm_discovery", False),
         freshness=source.get("freshness", True),
         freshness_factor=source.get("freshness_factor", 2.0),
+        file_metrics=source.get("file_metrics", True),
     )
 
 
