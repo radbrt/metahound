@@ -177,6 +177,24 @@ Oracle connects to a single service (identified by `service_name`) and enumerate
 
 See `metahound/connection_handlers/README.md` for full connection configuration details.
 
+**SFTP with key-based auth** (recommended over passwords):
+
+```yaml
+  - name: partner_sftp
+    type: sftp
+    search_prefix: /upload
+    connection:
+      host: sftp.partner.com
+      username: metahound
+      key_path: ~/.ssh/metahound_ed25519
+      key_passphrase: "{{ SFTP_KEY_PASSPHRASE }}"   # only if the key has one
+      port: 22
+```
+
+See [SECURITY.md](SECURITY.md) for least-privilege database grants per
+source type, what Metahound reads and stores, and how credentials are
+kept out of logs.
+
 **OpenAPI example:**
 
 ```yaml

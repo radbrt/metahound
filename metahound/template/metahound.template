@@ -18,7 +18,8 @@ sources:
 #      connection:
 #        host: sftp.example.com
 #        username: metahound
-#        password: "{{ SFTP_PASSWORD }}"
+#        key_path: ~/.ssh/metahound_ed25519   # recommended over password auth
+#        # password: "{{ SFTP_PASSWORD }}"
 #      filesets:
 #        - name: orders
 #          pattern: "orders_{date}.csv"
