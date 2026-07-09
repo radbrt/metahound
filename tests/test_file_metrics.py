@@ -149,3 +149,44 @@ class TestJSONLSampling:
         _, samples = handler.sample_file(sample_rate=100, max_records=1000)
         # Every 100th of 500 rows → 5 samples; the byte-hint bug yielded 1
         assert len(samples) == 5
+
+
+class TestMtimeNormalization:
+    def test_aware_and_epoch_mtimes_are_normalized(self):
+        # fsspec's SFTP yields timezone-aware datetimes; comparing those to
+        # the backend's naive highwater used to crash the scan
+        from metahound.cli_functions import _normalize_mtime
+
+        aware = datetime.datetime(2026, 7, 9, 12, 0, tzinfo=datetime.timezone.utc)
+        assert _normalize_mtime(aware) == datetime.datetime(2026, 7, 9, 12, 0)
+
+        offset = datetime.timezone(datetime.timedelta(hours=2))
+        assert _normalize_mtime(
+            datetime.datetime(2026, 7, 9, 14, 0, tzinfo=offset)
+        ) == datetime.datetime(2026, 7, 9, 12, 0)
+
+        assert _normalize_mtime(1783000000) == datetime.datetime.utcfromtimestamp(1783000000)
+        naive = datetime.datetime(2026, 7, 9, 12, 0)
+        assert _normalize_mtime(naive) is naive
+
+    def test_scan_survives_aware_mtimes(self):
+        backend = _backend()
+        filesystem = MagicMock()
+        aware = datetime.datetime(2026, 7, 9, 6, 0, tzinfo=datetime.timezone.utc)
+        filesystem.get_files.return_value = [
+            {"name": "orders_2026-07-09.csv", "size": 10, "mtime": aware}
+        ]
+        filesystem.get_last_modified.return_value = aware
+
+        with patch(
+            "metahound.cli_functions.handle_file",
+            side_effect=lambda name, fs, get_schemas: {"file": name, "properties": {}},
+        ):
+            _scan_filesystem_source(
+                "partner", "sftp", filesystem, backend, False,
+                filesets_config=[{"name": "orders", "pattern": "orders_{date}.csv"}],
+                infer_filesets=False,
+            )
+
+        arrivals = backend.get_file_arrivals("sftp://partner/")
+        assert arrivals == {"orders": [datetime.datetime(2026, 7, 9, 6, 0)]}
