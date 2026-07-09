@@ -267,6 +267,44 @@ class GenericBackendHandler():
         session.close()
 
 
+    def merge_fileset_metrics(self, source_name: str, metrics: list) -> None:
+        """Store per-fileset-member metrics as time series in table_metrics.
+
+        metrics: [(fileset, metric_name, value, ts)]. URIs are
+        fileset://{source}/{fileset}/{metric} with ts = the member file's
+        mtime, so each file becomes one point in its fileset's series and the
+        existing outlier pipeline (get_partitions/get_partition) picks the
+        series up with no changes. table_id stays NULL — filesets are not
+        tables. Points already present (same uri + ts) are skipped.
+        """
+        if not metrics:
+            return
+
+        Session = sessionmaker(bind=self.connection)
+        session = Session()
+
+        for fileset, metric_name, value, ts in metrics:
+            if value is None:
+                continue
+            uri = f"fileset://{source_name}/{fileset}/{metric_name}"
+            exists = (
+                session.query(TableMetrics)
+                .filter_by(uri=uri, ts=ts)
+                .filter(TableMetrics.metric_name == metric_name)
+                .first()
+            )
+            if exists:
+                continue
+            session.add(TableMetrics(
+                uri=uri,
+                ts=ts,
+                metric_name=metric_name,
+                metric_value=str(value),
+            ))
+        session.commit()
+        session.close()
+
+
     def get_file_arrivals(self, source_uri: str) -> dict:
         """Return {fileset: [mtime, ...]} sorted ascending, for one source."""
         FileArrivals.__table__.create(self.connection, checkfirst=True)

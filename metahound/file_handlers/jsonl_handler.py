@@ -47,15 +47,13 @@ class JSONLHandler():
 
         samples = []
 
-        current_row = 0
-        for row in self.filestream.readlines(max_records):
+        # Read at most max_records rows, keeping every sample_rate-th one.
+        # (readlines(n) treats n as a byte hint, not a line count — iterate.)
+        for current_row, row in enumerate(self.filestream):
+            if current_row >= max_records:
+                break
             if (current_row % sample_rate) == 0:
                 samples.append(json.loads(row))
-
-            current_row += 1
-
-            if len(samples) >= max_records:
-                break
 
         self.filestream.seek(0)
 

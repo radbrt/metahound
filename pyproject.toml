@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metahound"
-version = "2.6.0"
+version = "2.7.0"
 description = "Data observability CLI that scans upstream databases and file stores, detects schema changes, and fails your pipeline before bad data lands"
 authors = ["Henning <henning.holgersen@gmail.com>"]
 license = "Apache-2.0"

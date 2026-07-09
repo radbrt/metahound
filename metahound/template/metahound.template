@@ -32,3 +32,6 @@ sources:
 #      # is >2x its median arrival interval late. Tune or disable with:
 #      # freshness_factor: 3.0
 #      # freshness: false
+#      # File metrics: size/columns/rows per fileset member feed the
+#      # `metahound warnings` outlier detection. Disable with:
+#      # file_metrics: false
